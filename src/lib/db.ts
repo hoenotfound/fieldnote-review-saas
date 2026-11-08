@@ -30,10 +30,11 @@ async function createDatabase(): Promise<DB> {
       if (marker.rowCount !== 1) throw new Error();
       await pool.query("select business_id from business_logo limit 0");
       await pool.query("select questionnaire from business limit 0");
-    } catch {
+    } catch (cause) {
       await pool.end();
       throw new Error(
         "Database is not an initialized independent review app. Apply its migrations explicitly first.",
+        { cause },
       );
     }
     state.reviewClose = () => pool.end();

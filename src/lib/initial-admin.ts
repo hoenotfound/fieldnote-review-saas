@@ -42,10 +42,16 @@ export async function initializeFirstAdmin(
       email: env.INITIAL_ADMIN_EMAIL,
       password: env.INITIAL_ADMIN_PASSWORD,
     });
-    if (!parsed.success)
-      throw new Error(
-        "Set an admin email and a password of 12 to 128 characters.",
+    if (!parsed.success) {
+      const invalidPassword = parsed.error.issues.some(
+        (issue) => issue.path[0] === "password",
       );
+      throw Object.assign(new Error("Initial admin settings are invalid."), {
+        code: invalidPassword
+          ? "INITIAL_ADMIN_PASSWORD_INVALID"
+          : "INITIAL_ADMIN_EMAIL_INVALID",
+      });
+    }
 
     const id = randomUUID();
     const passwordHash = await hashPassword(parsed.data.password);

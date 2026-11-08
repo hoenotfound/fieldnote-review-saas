@@ -1,3 +1,51 @@
+export function safeStartupFailure(stage: string, error: unknown) {
+  const stages = [
+    "configuration",
+    "database",
+    "initial-admin",
+    "account-check",
+  ];
+  const safeStage = stages.includes(stage) ? stage : "startup";
+  const reasons: Record<string, string> = {
+    "28P01": "Database authentication failed.",
+    "42501": "The database role lacks a required permission.",
+    "42P01": "A required database table is missing.",
+    "42703": "A required database column is missing.",
+    ENOTFOUND: "The database hostname could not be resolved.",
+    EAI_AGAIN: "Database hostname resolution temporarily failed.",
+    ETIMEDOUT: "The database connection timed out.",
+    ECONNREFUSED: "The database connection was refused.",
+    UNABLE_TO_VERIFY_LEAF_SIGNATURE:
+      "Database TLS certificate verification failed.",
+    SELF_SIGNED_CERT_IN_CHAIN: "Database TLS certificate verification failed.",
+    ERR_TLS_CERT_ALTNAME_INVALID: "The database TLS hostname did not match.",
+    CERT_HAS_EXPIRED: "The database TLS certificate has expired.",
+    INITIAL_ADMIN_PASSWORD_INVALID:
+      "INITIAL_ADMIN_PASSWORD must contain 12 to 128 characters.",
+    INITIAL_ADMIN_EMAIL_INVALID:
+      "INITIAL_ADMIN_EMAIL must be a valid non-demo email address.",
+    PILOT_ADMIN_MISSING:
+      "No platform admin exists. Supply both initial-admin settings for an empty account database.",
+    PILOT_FIXTURES_PRESENT:
+      "Remove fictional demo records before enabling the pilot.",
+  };
+  let current = error;
+  for (
+    let depth = 0;
+    depth < 5 && current && typeof current === "object";
+    depth++
+  ) {
+    const item = current as { code?: unknown; cause?: unknown };
+    if (
+      typeof item.code === "string" &&
+      Object.prototype.hasOwnProperty.call(reasons, item.code)
+    )
+      return `Pilot check failed at ${safeStage} (${item.code}). ${reasons[item.code]} No credentials are printed.`;
+    current = item.cause;
+  }
+  return `Pilot check failed at ${safeStage}. Check the database, account settings and server configuration. No credentials are printed.`;
+}
+
 export function pilotProblems(env: Record<string, string | undefined>) {
   const errors: string[] = [];
   if (env.APP_MODE !== "pilot") errors.push("APP_MODE must be pilot.");
