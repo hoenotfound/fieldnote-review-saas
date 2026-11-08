@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
+import { safeAiFailure, safeAiResponse } from "./ai-diagnostics";
 import { getDb, rows, type DB } from "./db";
 import { AppError, hash, seal, unseal } from "./security";
 import {
@@ -199,6 +200,7 @@ export async function generate(
     if (!committed) throw new AppError("TIMEOUT", 503);
     return result.draft;
   } catch (e) {
+    console.warn(JSON.stringify(safeAiFailure(e)));
     await db.transaction(async (t) => {
       const tx = t as unknown as DB;
       const failed = await rows(
@@ -261,8 +263,21 @@ export async function writeDraft(input: GenerationInput, businessName: string) {
       abortSignal: AbortSignal.timeout(25000),
     },
   });
-  const parsed = outputSchema.safeParse(JSON.parse(response.text || "{}"));
-  if (!parsed.success) throw new AppError("INVALID_AI_OUTPUT", 503);
+  let output: unknown;
+  try {
+    output = JSON.parse(response.text || "{}");
+  } catch {
+    console.warn(JSON.stringify(safeAiResponse(response)));
+    throw new AppError("INVALID_AI_OUTPUT", 503);
+  }
+  const parsed = outputSchema.safeParse(output);
+  if (
+    !parsed.success ||
+    response.candidates?.[0]?.finishReason === "MAX_TOKENS"
+  ) {
+    console.warn(JSON.stringify(safeAiResponse(response)));
+    throw new AppError("INVALID_AI_OUTPUT", 503);
+  }
   if (parsed.data.needsDetail) throw new AppError("MORE_DETAIL", 422);
   return {
     draft: {
