@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.env*
+!.env.example
+!.env.pilot.example
+.data/
+*.tsbuildinfo
+local-access.txt
+update-backups/
+customer-experience-update/
+questionnaire-update/
+*.log
+.DS_Store
