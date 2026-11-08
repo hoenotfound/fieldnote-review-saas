@@ -8,7 +8,7 @@ This is a single Next.js Node application backed by a separate Neon PostgreSQL d
 2. Apply the numbered SQL migrations with a direct owner connection. The migration command requires APP_MODE=pilot and CONFIRM_NEW_REVIEW_DATABASE=yes. Do not run the seed command on the hosted database.
 3. Create a restricted runtime role with access to the app tables and use its pooled TLS connection for DATABASE_URL.
 4. Configure the server values listed in .env.pilot.example. Use the exact HTTPS service origin, a new authentication secret, your tested Gemini model and an explicit daily attempt limit.
-5. Provision a real platform operator using the create-owner script and its temporary ALLOW_OWNER_PROVISIONING=yes flag. Supply account details through private stdin, not command arguments, logs or committed files. Public signup is disabled. Remove the provisioning flag afterward.
+5. For the first operator on an empty account database, add INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD privately in Render's Environment settings. Choose a unique password of 12 to 128 characters. The startup check creates the user, password credential and admin membership atomically. It uses Better Auth's password hashing. Existing admins are left unchanged; existing non-admin accounts block initialization. Public signup stays disabled. After verifying the first sign-in, remove both initial-admin variables and deploy again to remove them from the running process. Later business-owner accounts use the server-side create-owner command with private stdin and its temporary ALLOW_OWNER_PROVISIONING=yes flag.
 6. Run npm run pilot:check before starting the service.
 
 Keep .env.local, local-access.txt, .data, update-backups, node_modules and .next out of Git. The example environment files contain placeholders only. Never put credentials in variables prefixed NEXT_PUBLIC_.
@@ -25,7 +25,7 @@ Keep .env.local, local-access.txt, .data, update-backups, node_modules and .next
 | Region | Match the database where possible |
 | Automatic deployment | Off during the initial pilot |
 
-Do not deploy as a Static Site. No Redis, worker, media bucket or Render PostgreSQL service is required. Database migrations and the operator account must exist before the startup check can pass. Free Render services do not provide Shell or one-off jobs, so perform initial account provisioning from a private local operator environment.
+Do not deploy as a Static Site. No Redis, worker, media bucket or Render PostgreSQL service is required. Database migrations and either an existing operator account or complete first-admin settings must be ready before the startup check can pass. Free Render services do not provide Shell or one-off jobs. The first-admin startup option avoids needing a shell for initial setup; later account provisioning can run in a private local operator environment.
 
 Render's free compute is intended for testing. It sleeps after 15 minutes without traffic and may take about one minute to wake. Shared workspace bandwidth and build allowances can incur overages when a payment method is present. Review the current plan and spending controls before deployment. Gemini attempt limits do not guarantee a currency spending cap.
 

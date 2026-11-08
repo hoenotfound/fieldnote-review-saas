@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { pilotProblems } from "../src/lib/pilot";
 import { getDb, rows, closeDb } from "../src/lib/db";
+import { initializeFirstAdmin } from "../src/lib/initial-admin";
 async function main() {
   const problems = pilotProblems(process.env);
   if (problems.length) {
@@ -8,7 +9,12 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  await getDb();
+  const db = await getDb();
+  const initialAdmin = await initializeFirstAdmin(db, process.env);
+  if (initialAdmin === "created")
+    console.log(
+      "Initial admin created. Remove INITIAL_ADMIN_PASSWORD and INITIAL_ADMIN_EMAIL from the service settings after verifying sign-in.",
+    );
   const admins = await rows(sql`select 1 from platform_admin limit 1`);
   const fixtureAccounts = await rows(
     sql`select 1 from auth_user where email like '%.example' limit 1`,
@@ -25,7 +31,7 @@ async function main() {
 main()
   .catch(() => {
     console.error(
-      "Pilot check failed. Check the isolated database migrations, operator account and absence of fictional demo data. No credentials are printed.",
+      "Pilot check failed. Check the isolated database migrations, operator account or initial-admin settings, and absence of fictional demo data. No credentials are printed.",
     );
     process.exitCode = 1;
   })
