@@ -43,6 +43,10 @@ The prompt requires genuine supplied experiences and preserves criticism. It doe
 
 Successful persisted drafts consume one business credit. Failed calls release their reservation but still count against the daily/session attempt caps. Internal network retries use the same idempotency key and cannot consume another successful-draft credit. A deliberate new generation uses a new key. A provider may still bill a timed-out request; the app does not automatically retry it.
 
+## Additional November pilot safeguards
+
+The 9 November patch adds PostgreSQL-backed guest issuance/network limits and per-business AI attempt budgets, local-first Finish clearing during network outages, opt-in kiosk inactivity reset (`?kiosk=1`), a pilot privacy-information page and a protected daily retention-cleanup workflow. It is **not automatically ready to deploy**: apply migration 004 to the verified separate Fieldnote database, configure the retention secret, run tests and a real-device acceptance check, and confirm sensible limits for shared clinic Wi-Fi. See `PILOT_SETUP.md` for current migration instructions and unresolved privacy/contact details. This does not modify DA AI Chatbot.
+
 ## Privacy and security boundaries
 
 Original experience text is sent to the generator but not stored in the server database or application logs. A hash of generation input and minimal metadata are stored. The duplicate-response cache contains an encrypted output, accessible only through the owning location-bound browser session. Sessions last two hours. Finish revokes the session and clears cached outputs, including in-flight results. Expired encrypted outputs are purged when generation cleanup runs; an idle process is not a guaranteed deletion timer. Before a paid pilot, choose and verify the cleanup schedule and backup retention.
