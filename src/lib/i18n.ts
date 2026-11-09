@@ -75,6 +75,8 @@ const en = {
   serverClearUnconfirmed:
     "This device has been cleared. Server cleanup could not be confirmed; the session expires automatically.",
   privacyLink: "Privacy information",
+  challengePrompt: "Please complete the quick verification to continue using AI. Manual writing is always available.",
+  challengeFailed: "Verification did not complete. Please try again or use your own wording.",
   rateLimited:
     "AI requests are temporarily limited here. You can still write and share manually.",
 };
@@ -135,6 +137,8 @@ const cn: Copy = {
   retry: "请求未完成，你的文字仍然保留。请重试或使用自己的文字。",
   serverClearUnconfirmed: "已清除此设备上的内容，但暂时无法确认服务器端清除。会话会自动过期。",
   privacyLink: "隐私说明",
+  challengePrompt: "请先完成简短验证，才能继续使用 AI。你也可以直接使用自己的文字。",
+  challengeFailed: "验证未完成，请重试或使用自己的文字。",
   rateLimited: "目前 AI 请求次数受限。你仍可自行撰写并分享。",
 };
 const tw: Copy = {
@@ -193,6 +197,8 @@ const tw: Copy = {
   retry: "請求未完成，你的文字仍然保留。請重試或使用自己的文字。",
   serverClearUnconfirmed: "已清除此裝置上的內容，但暫時無法確認伺服器端清除。工作階段會自動到期。",
   privacyLink: "隱私說明",
+  challengePrompt: "請先完成簡短驗證，才能繼續使用 AI。你也可以直接使用自己的文字。",
+  challengeFailed: "驗證未完成，請重試或使用自己的文字。",
   rateLimited: "目前 AI 請求次數受限。你仍可自行撰寫並分享。",
 };
 const ms: Copy = {
@@ -267,6 +273,8 @@ const ms: Copy = {
   serverClearUnconfirmed:
     "Kandungan telah dipadam pada peranti ini. Pemadaman pada pelayan belum dapat disahkan; sesi tamat secara automatik.",
   privacyLink: "Maklumat privasi",
+  challengePrompt: "Sila lengkapkan pengesahan ringkas untuk terus menggunakan AI. Anda boleh menulis sendiri.",
+  challengeFailed: "Pengesahan belum selesai. Cuba lagi atau guna ayat sendiri.",
   rateLimited:
     "Permintaan AI dihadkan buat sementara. Anda masih boleh menulis dan berkongsi sendiri.",
 };
@@ -279,6 +287,8 @@ export const translations: Record<Locale, Copy> = {
 export function errorText(code: string, t: Copy) {
   if (["QUOTA_EXHAUSTED", "DAILY_LIMIT", "BUSINESS_DAILY_LIMIT"].includes(code)) return t.quota;
   if (["SESSION_RATE_LIMIT", "AI_RATE_LIMIT"].includes(code)) return t.rateLimited;
+  if (code === "AI_CHALLENGE_REQUIRED") return t.challengePrompt;
+  if (code === "AI_CHALLENGE_FAILED") return t.challengeFailed;
   if (code === "SESSION_LIMIT") return t.limit;
   if (["ALREADY_RUNNING", "BUSY"].includes(code)) return t.busy;
   if (code === "SESSION_EXPIRED") return t.expired;
