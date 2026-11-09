@@ -20,7 +20,7 @@ const config = {
 } as const;
 
 test("Netlify preflight accepts only a dedicated site with a separate database marker", () => {
-  const env = { ...process.env, ...config };
+  const env: NodeJS.ProcessEnv = { ...process.env, ...config };
   delete env.RENDER;
   const good = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], {
     encoding: "utf8", env,
@@ -46,8 +46,8 @@ test("Netlify preflight accepts only a dedicated site with a separate database m
 
 test("Netlify retention calls only its own protected Netlify endpoint", async () => {
   // @ts-ignore: standalone Netlify ESM function intentionally has no .d.mts declaration
-  const { default: cleanup, config: schedule } =
-    await import("../netlify/functions/fieldnote-retention.mjs");
+  const module = await import("../netlify/functions/fieldnote-retention.mjs");
+  const { default: cleanup, config: schedule } = module;
   assert.equal(schedule.schedule, "23 3 * * *");
   const previous = {
     provider: process.env.HOSTING_PROVIDER,
