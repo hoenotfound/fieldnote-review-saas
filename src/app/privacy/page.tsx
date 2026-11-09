@@ -23,8 +23,9 @@ export default function Privacy() {
             browser tab for up to two hours. Using Finish &amp; clear erases
             them from this tab immediately, even if the network is unavailable.
             Photo previews use local files and are not uploaded to Fieldnote.
-            For shared kiosks, the optional kiosk setting resets an inactive
-            page after five minutes.
+            For shared kiosks, the optional kiosk setting does not restore
+            earlier drafts after reloading. It also resets an inactive page
+            after five minutes.
           </p>
           <h2>What is sent to AI</h2>
           <p>
@@ -33,6 +34,18 @@ export default function Privacy() {
             can prepare a draft. You can instead use your own words without
             requesting AI assistance. Provider-side processing and retention
             are subject to the provider's terms and settings.
+          </p>
+          <h2>Protecting the service</h2>
+          <p>
+            The service uses short-lived, salted identifiers derived from
+            network information and a random browser cookie to limit repeated
+            requests and preserve AI capacity for other customers. It does
+            not store raw visitor IP addresses in its rate counters. If you
+            reach a usage threshold, the operator may ask you to complete a
+            Cloudflare Turnstile verification before another AI request.
+            This verification involves Cloudflare processing browser and
+            device signals under its own privacy terms.
+            Manual writing remains available without completing it.
           </p>
           <h2>What the Fieldnote server retains</h2>
           <p>
