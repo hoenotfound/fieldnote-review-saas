@@ -98,9 +98,10 @@ export async function limitGeneration(
   }
   // Keep a single business from consuming all of a small shared global cap.
   const defaultCap = Math.max(1, Math.min(20, Math.floor(globalCap * 0.6)));
-  const businessCap = Math.min(
-    globalCap,
-    boundedLimit(process.env.AI_BUSINESS_DAILY_ATTEMPT_LIMIT, defaultCap, 10000),
+  // Explicit operator overrides may exceed the global cap; the global
+  // counter remains the hard cross-business safety boundary.
+  const businessCap = boundedLimit(
+    process.env.AI_BUSINESS_DAILY_ATTEMPT_LIMIT, defaultCap, 10000,
   );
   const spent = await rows(
     sql`insert into business_daily_budget(business_id,day,attempts)
