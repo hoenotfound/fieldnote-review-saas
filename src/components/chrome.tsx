@@ -22,7 +22,15 @@ export function Header() {
 export function Footer() {
   return (
     <footer className="footer">
-      <span>© {new Date().getFullYear()} DA Smarketing Solutions · HD Review</span>
+      <span className="hd-footer-company">
+        <img
+          src="/da-smarketing-logo.svg"
+          alt=""
+          width={30}
+          height={30}
+        />
+        <span>© {new Date().getFullYear()} DA Smarketing Solutions · HD Review</span>
+      </span>
       <span>
         {process.env.APP_MODE === "local" ? "Fictional data · " : ""}
         Real experiences · No automatic posting · <Link href="/privacy">Privacy</Link>

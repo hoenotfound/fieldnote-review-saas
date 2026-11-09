@@ -979,7 +979,17 @@ export function ReviewForm({
           </p>
           <span>
             {c.powered} <strong>HD Review</strong>
-            <span className="hd-review-attribution"> · by DA Smarketing Solutions</span>
+            <span className="hd-review-attribution">
+              {" · "}
+              <img
+                src="/da-smarketing-logo.svg"
+                alt=""
+                width={16}
+                height={16}
+                className="hd-review-company-mark"
+              />
+              {" "}by DA Smarketing Solutions
+            </span>
           </span>
         </footer>
       </div>

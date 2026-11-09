@@ -14,7 +14,16 @@ export function HDReviewWordmark({
         <span className="hd-brand-title">
           <span className="sr-only">HD </span>Review<span className="hd-brand-point">.</span>
         </span>
-        {showCompany && <span className="hd-brand-byline">by DA Smarketing Solutions</span>}
+        {showCompany && <span className="hd-brand-byline">
+          <img
+            src="/da-smarketing-logo.svg"
+            alt=""
+            width={18}
+            height={18}
+            className="hd-brand-company-mark"
+          />
+          by DA Smarketing Solutions
+        </span>}
       </span>
     </span>
   );

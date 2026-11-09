@@ -1994,3 +1994,27 @@ input[type="checkbox"] {
   .topbar .wordmark { min-width: 0; }
   .hd-review-attribution { display: block; margin-top: 3px; }
 }
+
+/* Parent-company logo is separate from each business's logo and the HD Review product mark. */
+.hd-brand-byline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.hd-brand-company-mark,
+.hd-review-company-mark,
+.hd-footer-company img {
+  object-fit: contain;
+  background: #fff;
+  flex-shrink: 0;
+}
+.hd-brand-company-mark { width: 18px; height: 18px; border-radius: 5px; }
+.hd-footer-company { display: inline-flex; align-items: center; gap: 8px; }
+.hd-footer-company img { width: 30px; height: 30px; border-radius: 7px; }
+.hd-review-company-mark {
+  display: inline-block;
+  vertical-align: middle;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
