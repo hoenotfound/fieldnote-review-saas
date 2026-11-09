@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { sql } from "drizzle-orm";
 import { rows } from "@/lib/db";
-import { AppError, errorResponse, hash, requireOrigin } from "@/lib/security";
+import { AppError, errorResponse, hash, requireOrigin, readLimitedJson } from "@/lib/security";
 import { publicLocation, generationInput, generate, writeDraft } from "@/lib/reviews";
 import { verifyAiChallenge } from "@/lib/ai-challenge";
 export const runtime = "nodejs";
@@ -9,9 +9,7 @@ export const maxDuration = 35;
 export async function POST(req: Request) {
   try {
     requireOrigin(req);
-    const text = await req.text();
-    if (text.length > 12000) throw new AppError("INVALID_INPUT", 413);
-    const rawInput = JSON.parse(text);
+    const rawInput = await readLimitedJson(req, 12000);
     if (!rawInput || typeof rawInput !== "object" || Array.isArray(rawInput))
       throw new AppError("INVALID_INPUT", 422);
     const { challengeToken, ...candidate } = rawInput as Record<string, unknown>;
