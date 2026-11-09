@@ -373,3 +373,19 @@ test("reloading restores the draft but never restores export approval", async ()
     true,
   );
 });
+
+test("Finish removes browser draft even when the cleanup request fails", async () => {
+  const u = userEvent.setup();
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.type(r.getByLabelText("Your experience"), "A draft to erase offline.");
+  assert.ok(sessionStorage.getItem("fieldnote:demo"));
+  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Finish & clear" }));
+  await testing.waitFor(() => {
+    assert.equal(r.queryByLabelText("Review"), null);
+    assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
+    assert.match(r.getByRole("alert").textContent || "", /This device has been cleared/);
+  });
+});
