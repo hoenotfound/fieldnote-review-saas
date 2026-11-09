@@ -1,0 +1,8 @@
+# Fieldnote Netlify trial only. The live Render service continues to use main.
+# Netlify's maintained OpenNext adapter handles Next.js App Router and API routes.
+[build]
+  command = "npm run netlify:build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "24"
