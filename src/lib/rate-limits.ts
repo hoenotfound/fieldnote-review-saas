@@ -33,20 +33,18 @@ function scopedHash(scope: string, businessId: string, identity: string) {
 export function networkKey(request: Request, businessId: string) {
   let identity = "unverified-network";
   if (process.env.HOSTING_PROVIDER === "netlify") {
-    // Netlify's documented connecting-IP header is forwarded to functions.
-    // Correlate it with both Netlify's request ID and the configured site ID.
-    // These are not cryptographic proofs of provenance; confirm the CDN
-    // overwrites spoofed headers before trusting this in production.
+    // Netlify retains x-nf-client-connection-ip and x-nf-request-id for
+    // Functions. x-nf-site-id is NOT a documented forwarded header.
+    // Hosting-provider selection and HMAC business scoping bind the identity
+    // to this app; never require an unsupported request-site header.
+    //
+    // Do not trust caller-controlled x-forwarded-for or client-ip. These
+    // Netlify headers are deployment assumptions, NOT cryptographic proof.
+    // Verify the CDN overwrites spoofed headers before a wider rollout.
     const ip = request.headers.get("x-nf-client-connection-ip")?.trim();
     const requestId = request.headers.get("x-nf-request-id")?.trim();
-    const siteId = request.headers.get("x-nf-site-id")?.trim();
-    const configuredSiteId = process.env.SITE_ID?.trim();
-    if (
-      configuredSiteId &&
-      siteId === configuredSiteId &&
-      requestId && /^[a-z0-9-]{10,100}$/i.test(requestId) &&
-      ip && isIP(ip)
-    ) identity = ip;
+    if (requestId && /^[a-z0-9-]{10,100}$/i.test(requestId) &&
+        ip && isIP(ip)) identity = ip;
   } else if (process.env.RENDER === "true") {
     const ip = request.headers.get("cf-connecting-ip")?.trim();
     if (request.headers.get("cf-ray")?.trim() && ip && isIP(ip))

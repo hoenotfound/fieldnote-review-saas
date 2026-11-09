@@ -146,7 +146,7 @@ test("Render Cloudflare visitor header is stable despite forged forwarded chains
   }
 });
 
-test("Netlify network identity is site-bound and ignores caller forwarded chains", () => {
+test("Netlify uses documented CDN headers without requiring x-nf-site-id", () => {
   const saved = {
     hosting: process.env.HOSTING_PROVIDER,
     render: process.env.RENDER,
@@ -154,48 +154,127 @@ test("Netlify network identity is site-bound and ignores caller forwarded chains
   };
   try {
     process.env.HOSTING_PROVIDER = "netlify";
-    process.env.SITE_ID = "00000000-0000-4000-8000-000000000001";
+    delete process.env.SITE_ID;
     delete process.env.RENDER;
-    const req = (ip: string, xff: string, siteId = process.env.SITE_ID!, requestId = "01KNNETLIFYREQUESTABCD") =>
-      new Request("https://fieldnote-trial.netlify.app/api/guest", {
+    // Netlify documents these two forwarded headers, not x-nf-site-id.
+    const request = (ip: string, options: Record<string, string> = {}) =>
+      new Request("https://fieldnote-review.netlify.app/api/guest", {
         headers: {
           "x-nf-client-connection-ip": ip,
-          "x-nf-request-id": requestId,
-          "x-nf-site-id": siteId,
-          "x-forwarded-for": xff,
+          "x-nf-request-id": "01KNNETLIFYREQUESTABCD",
+          ...options,
         },
       });
-    assert.equal(
-      networkKey(req("203.0.113.10", "192.0.2.10"), "limits-a"),
-      networkKey(req("203.0.113.10", "198.51.100.5"), "limits-a"),
+    const phoneA = networkKey(request("203.0.113.10"), "limits-a");
+    const phoneB = networkKey(request("198.51.100.21"), "limits-a");
+    assert.notEqual(phoneA, phoneB);
+    // Neither spoofed forwarded chains nor a fake site ID may re-key a phone.
+    assert.equal(phoneA, networkKey(request("203.0.113.10", {
+      "x-forwarded-for": "192.0.2.121, 198.51.100.7",
+      "client-ip": "198.51.100.9",
+      "x-nf-site-id": "forged",
+    }), "limits-a"));
+    assert.equal(phoneA, networkKey(request("203.0.113.10", {
+      "x-forwarded-for": "192.0.2.202",
+    }), "limits-a"));
+    // Another request ID does not reset limits for the same network.
+    assert.equal(phoneA, networkKey(request("203.0.113.10", {
+      "x-nf-request-id": "01KNNETLIFYOTHERREQID",
+    }), "limits-a"));
+    assert.notEqual(phoneA, networkKey(request("203.0.113.10"), "other-business"));
+
+    // Missing / invalid CDN metadata fails closed instead of trusting
+    // user-controlled X-Forwarded-For, Client-IP, or a spoofed site ID.
+    const missingRequestId = networkKey(request("203.0.113.10", {
+      "x-nf-request-id": "", "x-forwarded-for": "203.0.113.10",
+    }), "limits-a");
+    assert.equal(missingRequestId, networkKey(request("198.51.100.21", {
+      "x-nf-request-id": "", "x-forwarded-for": "198.51.100.21",
+    }), "limits-a"));
+    assert.equal(missingRequestId, networkKey(request("198.51.100.21", {
+      "x-nf-request-id": "bad",
+    }), "limits-a"));
+    assert.equal(missingRequestId, networkKey(request("203.0.113.10, 198.51.100.21"), "limits-a"));
+    assert.equal(missingRequestId, networkKey(new Request(
+      "https://fieldnote-review.netlify.app/api/guest",
+      { headers: { "x-forwarded-for": "203.0.113.10" } },
+    ), "limits-a"));
+    assert.notEqual(phoneA, missingRequestId);
+  } finally {
+    for (const [key, value] of Object.entries({
+      HOSTING_PROVIDER: saved.hosting, RENDER: saved.render, SITE_ID: saved.site,
+    })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test("two simulated Netlify phones on separate networks have independent limits", async () => {
+  const saved = {
+    hosting: process.env.HOSTING_PROVIDER,
+    render: process.env.RENDER,
+    site: process.env.SITE_ID,
+    businessCap: process.env.AI_BUSINESS_DAILY_ATTEMPT_LIMIT,
+    networkCap: process.env.AI_UNVERIFIED_NETWORK_DAILY_LIMIT,
+    turnstileSite: process.env.TURNSTILE_SITE_KEY,
+    turnstileSecret: process.env.TURNSTILE_SECRET_KEY,
+  };
+  const businessId = "netlify-two-phones";
+  try {
+    process.env.HOSTING_PROVIDER = "netlify";
+    delete process.env.RENDER;
+    delete process.env.SITE_ID;
+    delete process.env.TURNSTILE_SITE_KEY;
+    delete process.env.TURNSTILE_SECRET_KEY;
+    process.env.AI_BUSINESS_DAILY_ATTEMPT_LIMIT = "8";
+    process.env.AI_UNVERIFIED_NETWORK_DAILY_LIMIT = "1";
+    await db.execute(sql`insert into business(id,name,expires_at,allowance)
+      values(${businessId},'Two phones isolated test',now()+interval '7 days',100)`);
+    const make = (ip: string) => new Request(
+      "https://fieldnote-review.netlify.app/api/guest",
+      { headers: {
+        "x-nf-client-connection-ip": ip,
+        "x-nf-request-id": "01KNNETLIFYTWOFOOTEST",
+      } },
     );
-    assert.notEqual(
-      networkKey(req("203.0.113.10", "192.0.2.10"), "limits-a"),
-      networkKey(req("203.0.113.11", "192.0.2.10"), "limits-a"),
+    const phoneA = networkKey(make("203.0.113.20"), businessId);
+    const phoneB = networkKey(make("198.51.100.33"), businessId);
+    assert.notEqual(phoneA, phoneB);
+    await db.transaction(async t =>
+      limitGuestIssuance(t as unknown as DB, businessId, phoneA));
+    await db.transaction(async t =>
+      limitGuestIssuance(t as unknown as DB, businessId, phoneB));
+    await db.transaction(async t =>
+      limitGeneration(t as unknown as DB, businessId, phoneA, 20, "phone-a-browser"));
+    // Phone A's second attempt must not exhaust Phone B's first one.
+    await assert.rejects(
+      db.transaction(async t =>
+        limitGeneration(t as unknown as DB, businessId, phoneA, 20, "phone-a-browser")),
+      (e: unknown) => e instanceof AppError && e.code === "AI_RATE_LIMIT",
     );
-    // Incorrect/missing Netlify site or request ID: fail closed to one bucket.
-    assert.equal(
-      networkKey(req("203.0.113.10", "spoof", "wrong-site"), "limits-a"),
-      networkKey(req("203.0.113.11", "other", "wrong-site"), "limits-a"),
+    await db.transaction(async t =>
+      limitGeneration(t as unknown as DB, businessId, phoneB, 20, "phone-b-browser"));
+    const networkCounters = await rows<{ key_hash: string; attempts: number }>(
+      sql`select key_hash,attempts from guest_rate_counter
+        where scope='generation-unverified-day' and key_hash in (${phoneA},${phoneB})`,
     );
-    assert.equal(
-      networkKey(req("203.0.113.10", "spoof", process.env.SITE_ID, ""), "limits-a"),
-      networkKey(req("203.0.113.11", "other", process.env.SITE_ID, ""), "limits-a"),
+    assert.equal(networkCounters.length, 2);
+    assert.ok(networkCounters.every(x => x.attempts === 1));
+    const budget = await rows<{ attempts: number }>(
+      sql`select attempts from business_daily_budget where business_id=${businessId}`,
     );
-    // Netlify never falls back to a caller-supplied XFF when its metadata is absent.
-    assert.equal(
-      networkKey(new Request("https://fieldnote-trial.netlify.app", { headers: {
-        "x-forwarded-for": "203.0.113.10",
-      }}), "limits-a"),
-      networkKey(new Request("https://fieldnote-trial.netlify.app", { headers: {
-        "x-forwarded-for": "203.0.113.200",
-      }}), "limits-a"),
-    );
+    assert.equal(budget.length, 1);
+    assert.equal(budget[0].attempts, 2);
   } finally {
     for (const [key, value] of Object.entries({
       HOSTING_PROVIDER: saved.hosting,
       RENDER: saved.render,
       SITE_ID: saved.site,
+      AI_BUSINESS_DAILY_ATTEMPT_LIMIT: saved.businessCap,
+      AI_UNVERIFIED_NETWORK_DAILY_LIMIT: saved.networkCap,
+      TURNSTILE_SITE_KEY: saved.turnstileSite,
+      TURNSTILE_SECRET_KEY: saved.turnstileSecret,
     })) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;

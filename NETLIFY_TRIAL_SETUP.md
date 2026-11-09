@@ -39,7 +39,9 @@ Use `.env.netlify-trial.example` as a checklist. Enter values in **Netlify's Env
 - `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD`: first-deployment-only account creation; choose a real email and a unique password of 12–128 characters. **Remove both values and redeploy after verifying sign-in.**
 - `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`: create a **new** Cloudflare Turnstile widget for this exact Netlify hostname. Never reuse the widget restricted to Render. Set both together.
 
-`SITE_ID` is a Netlify-provided variable. Do not copy it from another Netlify project. The app uses it to check whether a visitor-IP header belongs to this site.
+Netlify forwards `x-nf-client-connection-ip` and `x-nf-request-id` to its functions. The application requires both to identify each visitor network, hashes the IP using `BETTER_AUTH_SECRET` and business ID, and never stores raw IPs. Do **not** add `x-nf-site-id`: Netlify does not document this header for Functions. If the trusted headers are unavailable, the app fails closed to a shared network bucket while independent per-browser and per-business daily caps still apply. Before serving customers, verify live CDN headers cannot be spoofed; passing unit tests is not a substitute for an edge-header test.
+
+Two-device acceptance check: open `/r/netlify-demo` on Phone A (Wi-Fi) and Phone B (mobile data, Wi-Fi off) in separate browsers; submit one real, independently written review from each. Verify both succeed. Check Neon `guest_session` for the two new rows: `network_key` values must differ, while the two `client_key` values are also distinct. Never log or display raw IP addresses. This consumes two AI attempts, so the trial daily cap may be exhausted after this check.
 
 The build performs three checks in this order: trial configuration, `npm run pilot:check` (including separate database marker and initial admin), then the Next.js production build. It will intentionally fail without the correct isolated credentials.
 
