@@ -1,0 +1,22 @@
+name: Fieldnote privacy retention
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger protected retention cleanup
+        env:
+          MAINTENANCE_TOKEN: ${{ secrets.FIELDNOTE_MAINTENANCE_TOKEN }}
+        run: |
+          if [ -z "$MAINTENANCE_TOKEN" ]; then
+            echo "::error::Retention cleanup is not configured: FIELDNOTE_MAINTENANCE_TOKEN is missing."
+            exit 1
+          fi
+          curl --fail-with-body --show-error --silent \
+            --max-time 180 --retry 2 --request POST \
+            --header "Authorization: Bearer $MAINTENANCE_TOKEN" \
+            "https://fieldnote-review-saas.onrender.com/api/maintenance"

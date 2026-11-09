@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { customerCopy } from "@/lib/customer-copy";
 import { BusinessMark, accentText } from "./business-mark";
 import { CustomerQuestionnaire } from "./customer-questionnaire";
+import { AiHumanChallenge } from "./ai-human-challenge";
 import {
   emptyAnswers,
   answersSchema,
@@ -40,9 +41,11 @@ type Photo = { url: string; name: string };
 export function ReviewForm({
   location,
   local,
+  turnstileSiteKey = "",
 }: {
   location: PublicLocation;
   local: boolean;
+  turnstileSiteKey?: string;
 }) {
   const [stage, setStage] = useState<
     "welcome" | "visit" | "review" | "complete"
@@ -71,14 +74,25 @@ export function ReviewForm({
   const resultRef = useRef<HTMLElement>(null);
   const pendingKey = useRef<string | null>(null);
   const restored = useRef(false);
+  const requestEpoch = useRef(0);
+  const activeGeneration = useRef<AbortController | null>(null);
+  const kioskExpired = useRef(false);
+  const [challengeRequired, setChallengeRequired] = useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const [challengeNonce, setChallengeNonce] = useState(0);
+  const isKiosk =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("kiosk") === "1";
   const t = translations[locale];
   const storageKey = "fieldnote:" + location.slug;
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(storageKey);
+      // Shared kiosks must never resurrect a previous visitor's draft.
+      if (isKiosk) sessionStorage.removeItem(storageKey);
+      const raw = isKiosk ? null : sessionStorage.getItem(storageKey);
       if (raw) {
         const old = JSON.parse(raw);
-        if (Date.now() - old.saved < 7200000) {
+        if (typeof old.saved === "number" && old.saved <= Date.now() && Date.now() - old.saved < 7200000) {
           setExperience(
             typeof old.experience === "string"
               ? old.experience.slice(0, 2000)
@@ -111,15 +125,25 @@ export function ReviewForm({
             setDraft(old.draft);
             setStage("review");
           }
+        } else {
+          sessionStorage.removeItem(storageKey);
         }
       }
-    } catch {}
+    } catch {
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {}
+    }
     restored.current = true;
-    return () => photoRef.current.forEach((p) => URL.revokeObjectURL(p.url));
-  }, [storageKey, configVersion]);
+    return () => {
+      requestEpoch.current += 1;
+      activeGeneration.current?.abort();
+      photoRef.current.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [storageKey, configVersion, isKiosk]);
   useEffect(() => {
     try {
-      if (restored.current)
+      if (!isKiosk && restored.current && (stage === "visit" || stage === "review"))
         sessionStorage.setItem(
           storageKey,
           JSON.stringify({
@@ -147,6 +171,7 @@ export function ReviewForm({
     draft,
     draftLanguage,
     storageKey,
+    isKiosk,
   ]);
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -156,6 +181,8 @@ export function ReviewForm({
     window.scrollTo?.({ top: 0, behavior: "instant" });
   }, [stage]);
   function invalidate() {
+    setChallengeToken("");
+    setChallengeNonce((n) => n + 1);
     setConfirmed(false);
     pendingKey.current = null;
     setDraft(null);
@@ -163,11 +190,13 @@ export function ReviewForm({
     setMessage("");
   }
   function edit(value: Partial<Draft>) {
+    if (kioskExpired.current) return;
     setDraft((old) => (old ? { ...old, ...value } : null));
     setConfirmed(false);
     setMessage("");
   }
   async function generate() {
+    if (kioskExpired.current || busy) return;
     setError("");
     setMessage("");
     setConfirmed(false);
@@ -175,13 +204,23 @@ export function ReviewForm({
       setError(t.more);
       return;
     }
+    if (challengeRequired && !challengeToken) {
+      setError(t.challengePrompt);
+      return;
+    }
+    const epoch = requestEpoch.current;
+    const controller = new AbortController();
+    activeGeneration.current = controller;
+    const timer = window.setTimeout(() => controller.abort(), 35000);
     setBusy(true);
     try {
       const guest = await fetch("/api/guest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug: location.slug }),
+        signal: controller.signal,
       });
+      if (epoch !== requestEpoch.current || controller.signal.aborted) return;
       if (!guest.ok) throw new Error((await guest.json()).error);
       pendingKey.current ??= crypto.randomUUID();
       const res = await fetch("/api/generate", {
@@ -194,10 +233,13 @@ export function ReviewForm({
           locale: output,
           platform,
           requestKey: pendingKey.current,
+          ...(challengeRequired && challengeToken ? { challengeToken } : {}),
         }),
-        signal: AbortSignal.timeout(35000),
+        signal: controller.signal,
       });
+      if (epoch !== requestEpoch.current || controller.signal.aborted) return;
       const data = await res.json();
+      if (epoch !== requestEpoch.current || controller.signal.aborted) return;
       if (!res.ok) {
         if (data.error !== "ALREADY_RUNNING") pendingKey.current = null;
         throw new Error(data.error);
@@ -205,26 +247,38 @@ export function ReviewForm({
       setDraft(data);
       setDraftLanguage(output);
       setStage("review");
+      setChallengeRequired(false);
+      setChallengeToken("");
       pendingKey.current = null;
-      setTimeout(
-        () =>
-          resultRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          }),
-        100,
-      );
+      setTimeout(() => {
+        if (epoch === requestEpoch.current)
+          resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     } catch (e) {
-      setError(
-        e instanceof Error && e.message === "QUESTIONNAIRE_CHANGED"
-          ? q.changed
-          : errorText(e instanceof Error ? e.message : "REQUEST_FAILED", t),
-      );
+      if (epoch !== requestEpoch.current) return;
+      const code = e instanceof Error ? e.message : "REQUEST_FAILED";
+      if (code === "AI_CHALLENGE_REQUIRED" && turnstileSiteKey) {
+        setChallengeRequired(true);
+        setChallengeToken("");
+        setChallengeNonce((n) => n + 1);
+        setError(t.challengePrompt);
+      } else {
+        if (challengeRequired) {
+          setChallengeToken("");
+          setChallengeNonce((n) => n + 1);
+        }
+        setError(
+          code === "QUESTIONNAIRE_CHANGED" ? q.changed : errorText(code, t),
+        );
+      }
     } finally {
-      setBusy(false);
+      window.clearTimeout(timer);
+      if (activeGeneration.current === controller) activeGeneration.current = null;
+      if (epoch === requestEpoch.current) setBusy(false);
     }
   }
   function manual() {
+    if (kioskExpired.current) return;
     if (!validAnswers || !hasExperience(experience, answers)) {
       setError(t.more);
       return;
@@ -248,7 +302,7 @@ export function ReviewForm({
     );
   }
   async function copy(text: string) {
-    if (!confirmed) return;
+    if (!confirmed || kioskExpired.current) return;
     try {
       await navigator.clipboard.writeText(text);
       setMessage(t.copied);
@@ -256,9 +310,34 @@ export function ReviewForm({
       setError(t.copyFailed);
     }
   }
+  function clearLocal() {
+    requestEpoch.current += 1;
+    activeGeneration.current?.abort();
+    activeGeneration.current = null;
+    setChallengeRequired(false);
+    setChallengeToken("");
+    setExperience("");
+    setAnswers(emptyAnswers());
+    setDraft(null);
+    setConsent(false);
+    setConfirmed(false);
+    setError("");
+    setMessage("");
+    photoRef.current.forEach((p) => URL.revokeObjectURL(p.url));
+    photoRef.current = [];
+    setPhotos([]);
+    pendingKey.current = null;
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch {}
+  }
   async function finish() {
+    if (finishing) return;
     setBusy(true);
     setFinishing(true);
+    // Erase visible and browser-stored content before any network request.
+    clearLocal();
+    setStage("complete");
     try {
       const res = await fetch("/api/guest", {
         method: "POST",
@@ -266,28 +345,64 @@ export function ReviewForm({
         body: JSON.stringify({ slug: location.slug, finish: true }),
       });
       if (!res.ok) throw new Error();
-      setExperience("");
-      setAnswers(emptyAnswers());
-      setDraft(null);
-      setConsent(false);
-      setConfirmed(false);
-      setError("");
       setMessage(t.finished);
-      photos.forEach((p) => URL.revokeObjectURL(p.url));
-      setPhotos([]);
-      photoRef.current = [];
-      pendingKey.current = null;
-      try {
-        sessionStorage.removeItem(storageKey);
-      } catch {}
-      setStage("complete");
     } catch {
-      setError(t.retry);
+      // Local data is already gone. The session expires server-side regardless.
+      setError(t.serverClearUnconfirmed);
     } finally {
       setBusy(false);
       setFinishing(false);
     }
   }
+  useEffect(() => {
+    if (!isKiosk || (stage !== "visit" && stage !== "review")) return;
+    kioskExpired.current = false;
+    let lastActivity = Date.now();
+    let reset = false;
+    const expire = () => {
+      if (reset) return;
+      reset = true;
+      kioskExpired.current = true;
+      clearLocal();
+      setBusy(false);
+      setLocale("en");
+      setOutput("en");
+      setStage("welcome");
+      void fetch("/api/guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: location.slug, finish: true }),
+      }).catch(() => {});
+    };
+    const check = () => {
+      if (Date.now() - lastActivity >= 5 * 60 * 1000) expire();
+    };
+    const activity = (event: Event) => {
+      // Suppress this expired interaction before React receives an old click,
+      // input or submit handler; otherwise it could recreate a cleared draft.
+      if (reset || Date.now() - lastActivity >= 5 * 60 * 1000) {
+        expire();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      } else {
+        lastActivity = Date.now();
+      }
+    };
+    const activityEvents = ["pointerdown", "keydown", "touchstart", "input", "click", "change"];
+    for (const event of activityEvents)
+      window.addEventListener(event, activity, true);
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", check);
+    const interval = window.setInterval(check, 15000);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", check);
+      for (const event of activityEvents)
+        window.removeEventListener(event, activity, true);
+    };
+  }, [stage, storageKey, location.slug, isKiosk]);
+
   function addPhotos(files: FileList | null) {
     if (!files) return;
     const list = Array.from(files);
@@ -612,10 +727,20 @@ export function ReviewForm({
                 <span>{t.consent}</span>
               </label>
               {!ready && <p className="empty-guidance">{c.emptyHint}</p>}
+              {challengeRequired && turnstileSiteKey && (
+                <div className="field" role="group" aria-label={t.challengePrompt}>
+                  <p>{t.challengePrompt}</p>
+                  <AiHumanChallenge
+                    key={challengeNonce}
+                    siteKey={turnstileSiteKey}
+                    onToken={setChallengeToken}
+                  />
+                </div>
+              )}
               <div className="generate-action">
                 <button
                   className="btn full primary-action"
-                  disabled={!consent || busy || !ready}
+                  disabled={!consent || busy || !ready || (challengeRequired && !challengeToken)}
                   onClick={generate}
                 >
                   {busy ? (
@@ -838,7 +963,8 @@ export function ReviewForm({
         <footer className="review-footer">
           <p>
             <ShieldCheck size={14} />
-            {c.welcomePrivacy}
+            {c.welcomePrivacy}{" "}
+            <a href="/privacy">{t.privacyLink}</a>
           </p>
           <span>
             {c.powered} <strong>fieldnote.</strong>
