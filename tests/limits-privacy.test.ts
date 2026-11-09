@@ -146,6 +146,63 @@ test("Render Cloudflare visitor header is stable despite forged forwarded chains
   }
 });
 
+test("Netlify network identity is site-bound and ignores caller forwarded chains", () => {
+  const saved = {
+    hosting: process.env.HOSTING_PROVIDER,
+    render: process.env.RENDER,
+    site: process.env.SITE_ID,
+  };
+  try {
+    process.env.HOSTING_PROVIDER = "netlify";
+    process.env.SITE_ID = "00000000-0000-4000-8000-000000000001";
+    delete process.env.RENDER;
+    const req = (ip: string, xff: string, siteId = process.env.SITE_ID!, requestId = "01KNNETLIFYREQUESTABCD") =>
+      new Request("https://fieldnote-trial.netlify.app/api/guest", {
+        headers: {
+          "x-nf-client-connection-ip": ip,
+          "x-nf-request-id": requestId,
+          "x-nf-site-id": siteId,
+          "x-forwarded-for": xff,
+        },
+      });
+    assert.equal(
+      networkKey(req("203.0.113.10", "192.0.2.10"), "limits-a"),
+      networkKey(req("203.0.113.10", "198.51.100.5"), "limits-a"),
+    );
+    assert.notEqual(
+      networkKey(req("203.0.113.10", "192.0.2.10"), "limits-a"),
+      networkKey(req("203.0.113.11", "192.0.2.10"), "limits-a"),
+    );
+    // Incorrect/missing Netlify site or request ID: fail closed to one bucket.
+    assert.equal(
+      networkKey(req("203.0.113.10", "spoof", "wrong-site"), "limits-a"),
+      networkKey(req("203.0.113.11", "other", "wrong-site"), "limits-a"),
+    );
+    assert.equal(
+      networkKey(req("203.0.113.10", "spoof", process.env.SITE_ID, ""), "limits-a"),
+      networkKey(req("203.0.113.11", "other", process.env.SITE_ID, ""), "limits-a"),
+    );
+    // Netlify never falls back to a caller-supplied XFF when its metadata is absent.
+    assert.equal(
+      networkKey(new Request("https://fieldnote-trial.netlify.app", { headers: {
+        "x-forwarded-for": "203.0.113.10",
+      }}), "limits-a"),
+      networkKey(new Request("https://fieldnote-trial.netlify.app", { headers: {
+        "x-forwarded-for": "203.0.113.200",
+      }}), "limits-a"),
+    );
+  } finally {
+    for (const [key, value] of Object.entries({
+      HOSTING_PROVIDER: saved.hosting,
+      RENDER: saved.render,
+      SITE_ID: saved.site,
+    })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test("unverified networks are limited but verified users can continue on shared Wi-Fi", async () => {
   await db.execute(sql`insert into business(id,name,expires_at,allowance)
     values('shared-clinic','Shared Wi-Fi',now()+interval '7 days',100)`);
