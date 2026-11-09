@@ -29,5 +29,13 @@ export async function makeAuth(bootstrap = false) {
 }
 let authPromise: ReturnType<typeof makeAuth> | undefined;
 export function getAuth() {
-  return (authPromise ??= makeAuth());
+  if (!authPromise) {
+    const pending = makeAuth();
+    authPromise = pending;
+    // A transient database or configuration failure must allow a later retry.
+    void pending.catch(() => {
+      if (authPromise === pending) authPromise = undefined;
+    });
+  }
+  return authPromise;
 }
