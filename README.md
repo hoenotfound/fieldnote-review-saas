@@ -45,13 +45,13 @@ Successful persisted drafts consume one business credit. Failed calls release th
 
 ## Additional November pilot safeguards
 
-The 9 November patch adds PostgreSQL-backed guest issuance/network limits and per-business AI attempt budgets, local-first Finish clearing during network outages, opt-in kiosk inactivity reset (`?kiosk=1`), a pilot privacy-information page and a protected daily retention-cleanup workflow. It is **not automatically ready to deploy**: apply migration 004 to the verified separate Fieldnote database, configure the retention secret, run tests and a real-device acceptance check, and confirm sensible limits for shared clinic Wi-Fi. See `PILOT_SETUP.md` for current migration instructions and unresolved privacy/contact details. This does not modify DA AI Chatbot.
+The 9 November patch adds PostgreSQL-backed guest issuance/network/browser limits and per-business AI attempt budgets, optional Cloudflare Turnstile human verification for higher usage, local-first Finish clearing during network outages, opt-in kiosk inactivity reset (`?kiosk=1`), a pilot privacy-information page and a protected daily retention-cleanup workflow. It is **not automatically ready to deploy**: apply migration 004 to the verified separate Fieldnote database, configure the retention secret, run tests and a real-device acceptance check, and confirm sensible limits for shared clinic Wi-Fi. See `PILOT_SETUP.md` for current migration instructions and unresolved privacy/contact details. This does not modify DA AI Chatbot.
 
 ## Privacy and security boundaries
 
 Original experience text is sent to the generator but not stored in the server database or application logs. A hash of generation input and minimal metadata are stored. The duplicate-response cache contains an encrypted output, accessible only through the owning location-bound browser session. Sessions last two hours. Finish revokes the session and clears cached outputs, including in-flight results. Expired encrypted outputs are purged when generation cleanup runs; an idle process is not a guaranteed deletion timer. Before a paid pilot, choose and verify the cleanup schedule and backup retention.
 
-Drafts persist in the current browser tab's sessionStorage, with a two-hour restoration limit, and are cleared by Finish. Photo previews use local object URLs only; there is no customer media upload endpoint. Closing/removing previews releases the object URLs.
+Personal-phone drafts persist in the current browser tab's sessionStorage, with a two-hour restoration limit, and are cleared by Finish. Kiosk mode disables draft restoration and browser storage. Photo previews use local object URLs only; there is no customer media upload endpoint. Closing/removing previews releases the object URLs.
 
 Merchants see usage, not customer draft text. Cookie mutations require the configured exact Origin. SQL is parameterized. Business and operator actions check server-side access. QR downloads are authenticated. Google destinations accept a small HTTPS host allowlist; redirects and real branch ownership still need manual verification before pilot use.
 
@@ -63,7 +63,7 @@ The source is ready for hosting configuration. Database setup, runtime credentia
 
 ## Verification
 
-35 automated tests and the production build passed. The production dependency audit reported no known vulnerabilities. The sign-in test emitted a warning about missing proxy IP headers; configure trusted client-IP forwarding correctly on Render before a pilot.
+The latest pull-request CI runs tests, TypeScript checks and the production build. The production dependency audit reported no known vulnerabilities. The sign-in test emitted a warning about missing proxy IP headers; configure trusted client-IP forwarding correctly on Render before a pilot.
 
 Run `npm test` and `npm run build`. See `MILESTONE_STATUS.md` for actual results and limitations. UI tests use a DOM simulation; they are not real-browser or real-device evidence.
 
