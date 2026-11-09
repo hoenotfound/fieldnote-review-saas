@@ -118,3 +118,135 @@ test("maintenance endpoint requires a private bearer secret", async () => {
     delete process.env.MAINTENANCE_SECRET;
   }
 });
+
+test("Render Cloudflare visitor header is stable despite forged forwarded chains", () => {
+  const prior = process.env.RENDER;
+  try {
+    process.env.RENDER = "true";
+    const req = (ip: string, xff: string, ray = "ray-123") =>
+      new Request("https://example.com/api/guest", {
+        headers: { "cf-connecting-ip": ip, "cf-ray": ray, "x-forwarded-for": xff },
+      });
+    assert.equal(
+      networkKey(req("203.0.113.10", "198.51.100.1, 192.0.2.1"), "limits-a"),
+      networkKey(req("203.0.113.10", "192.0.2.200, 198.51.100.20"), "limits-a"),
+    );
+    assert.notEqual(
+      networkKey(req("203.0.113.10", "192.0.2.20"), "limits-a"),
+      networkKey(req("203.0.113.11", "192.0.2.20"), "limits-a"),
+    );
+    // If Cloudflare provenance cannot be checked, fail closed to one key.
+    assert.equal(
+      networkKey(req("203.0.113.10", "spoof", ""), "limits-a"),
+      networkKey(req("203.0.113.11", "spoof", ""), "limits-a"),
+    );
+  } finally {
+    if (prior === undefined) delete process.env.RENDER;
+    else process.env.RENDER = prior;
+  }
+});
+
+test("unverified networks are limited but verified users can continue on shared Wi-Fi", async () => {
+  await db.execute(sql`insert into business(id,name,expires_at,allowance)
+    values('shared-clinic','Shared Wi-Fi',now()+interval '7 days',100)`);
+  process.env.TURNSTILE_SITE_KEY = "public-test-key";
+  process.env.TURNSTILE_SECRET_KEY = "private-test-key";
+  try {
+    for (let i = 0; i < 3; i++) {
+      await db.transaction(async t =>
+        limitGeneration(t as unknown as DB, "shared-clinic", "same-wifi", 10, "browser-" + i),
+      );
+    }
+    await assert.rejects(
+      db.transaction(async t =>
+        limitGeneration(t as unknown as DB, "shared-clinic", "same-wifi", 10, "browser-new"),
+      ),
+      (e: unknown) => e instanceof AppError && e.code === "AI_CHALLENGE_REQUIRED",
+    );
+    // Someone on the same legitimate clinic Wi-Fi can complete the challenge.
+    await db.transaction(async t =>
+      limitGeneration(t as unknown as DB, "shared-clinic", "same-wifi", 10, "browser-new", true),
+    );
+    const totals = await rows<{ attempts: number }>(
+      sql`select attempts from business_daily_budget where business_id='shared-clinic'`,
+    );
+    assert.equal(totals[0].attempts, 4);
+    // A different visitor network can still use the remaining budget.
+    await db.transaction(async t =>
+      limitGeneration(t as unknown as DB, "shared-clinic", "other-wifi", 10, "browser-other"),
+    );
+  } finally {
+    delete process.env.TURNSTILE_SITE_KEY;
+    delete process.env.TURNSTILE_SECRET_KEY;
+  }
+});
+
+test("replacing a guest session does not reset the browser's unverified AI budget", async () => {
+  await db.execute(sql`insert into business(id,name,expires_at,allowance)
+    values('browser-limit','Same browser',now()+interval '7 days',100)`);
+  process.env.TURNSTILE_SITE_KEY = "test-key";
+  process.env.TURNSTILE_SECRET_KEY = "test-secret";
+  try {
+    await db.transaction(async t =>
+      limitGeneration(t as unknown as DB, "browser-limit", "network-one", 10, "same-browser"),
+    );
+    await db.transaction(async t =>
+      limitGeneration(t as unknown as DB, "browser-limit", "network-two", 10, "same-browser"),
+    );
+    await assert.rejects(
+      db.transaction(async t =>
+        limitGeneration(t as unknown as DB, "browser-limit", "network-three", 10, "same-browser"),
+      ),
+      (e: unknown) => e instanceof AppError && e.code === "AI_CHALLENGE_REQUIRED",
+    );
+  } finally {
+    delete process.env.TURNSTILE_SITE_KEY;
+    delete process.env.TURNSTILE_SECRET_KEY;
+  }
+});
+
+test("QR redirect forwards only the approved kiosk flag", async () => {
+  const { GET } = await import("../src/app/q/[code]/route");
+  const route = (query: string) => GET(
+    new Request("http://localhost:3000/q/limits-qr" + query),
+    { params: Promise.resolve({ code: "limits-qr" }) },
+  );
+  const kiosk = await route("?kiosk=1&next=https://evil.example");
+  assert.equal(kiosk.status, 302);
+  const url = new URL(kiosk.headers.get("location")!);
+  assert.equal(url.searchParams.get("kiosk"), "1");
+  assert.equal(url.searchParams.has("next"), false);
+  assert.equal(url.pathname, "/r/limits-location");
+  const normal = await route("?kiosk=anything-else");
+  assert.equal(new URL(normal.headers.get("location")!).search, "");
+});
+
+test("human verification rejects invalid tokens, wrong hostnames and wrong actions", async () => {
+  const { verifyAiChallenge } = await import("../src/lib/ai-challenge");
+  const priorFetch = globalThis.fetch;
+  const priorSite = process.env.TURNSTILE_SITE_KEY;
+  const priorSecret = process.env.TURNSTILE_SECRET_KEY;
+  process.env.TURNSTILE_SITE_KEY = "test-public";
+  process.env.TURNSTILE_SECRET_KEY = "test-private";
+  try {
+    await assert.rejects(verifyAiChallenge(""), e => e instanceof AppError);
+    globalThis.fetch = async () => Response.json({
+      success: true, hostname: "evil.example", action: "fieldnote_ai",
+    });
+    await assert.rejects(verifyAiChallenge("provided-token"), e => e instanceof AppError);
+    globalThis.fetch = async () => Response.json({
+      success: true, hostname: new URL(process.env.APP_ORIGIN!).hostname, action: "wrong-action",
+    });
+    await assert.rejects(verifyAiChallenge("provided-token"), e => e instanceof AppError);
+    globalThis.fetch = async () => Response.json({
+      success: true, hostname: new URL(process.env.APP_ORIGIN!).hostname, action: "fieldnote_ai",
+    });
+    assert.equal(await verifyAiChallenge("provided-token"), true);
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (priorSite === undefined) delete process.env.TURNSTILE_SITE_KEY;
+    else process.env.TURNSTILE_SITE_KEY = priorSite;
+    if (priorSecret === undefined) delete process.env.TURNSTILE_SECRET_KEY;
+    else process.env.TURNSTILE_SECRET_KEY = priorSecret;
+  }
+});
