@@ -508,23 +508,22 @@ export function ReviewForm({
           </div>
         </section>
         {stage !== "complete" && (
-          <ol
-            className="review-progress"
-            aria-label={`${c.step} ${step} ${c.of} 3`}
-          >
-            {[c.language, c.experience, c.review].map((label, i) => (
-              <li
-                key={i}
-                className={
-                  i + 1 < step ? "done" : i + 1 === step ? "current" : ""
-                }
-                aria-current={i + 1 === step ? "step" : undefined}
-              >
-                <span>{i + 1 < step ? <Check size={13} /> : i + 1}</span>
-                {label}
-              </li>
-            ))}
-          </ol>
+          <div className="review-steps">
+            <div className="review-steps-meta">
+              <span>{c.step} {step} {c.of} 3</span>
+              <strong>{[c.language, c.experience, c.review][step - 1]}</strong>
+            </div>
+            <ol className="review-progress" aria-label={`${c.step} ${step} ${c.of} 3`}>
+              {[c.language, c.experience, c.review].map((label, i) => (
+                <li
+                  key={i}
+                  aria-label={label}
+                  className={i + 1 < step ? "done" : i + 1 === step ? "current" : ""}
+                  aria-current={i + 1 === step ? "step" : undefined}
+                />
+              ))}
+            </ol>
+          </div>
         )}
         <div className="review-panel" aria-busy={busy}>
           {stage === "welcome" && (
@@ -998,25 +997,20 @@ export function ReviewForm({
           )}
         </div>
         <footer className="review-footer">
-          <p>
-            <ShieldCheck size={14} />
-            {c.welcomePrivacy}{" "}
-            <a href="/privacy">{t.privacyLink}</a>
-          </p>
-          <span>
-            {c.powered} <strong>HD Review</strong>
-            <span className="hd-review-attribution">
-              {" · "}
-              <img
-                src="/da-smarketing-logo.svg"
-                alt=""
-                width={16}
-                height={16}
-                className="hd-review-company-mark"
-              />
-              {" "}by DA Smarketing Solutions
-            </span>
-          </span>
+          <div className="review-footer-credit">
+            <img
+              src="/da-smarketing-logo.svg"
+              alt=""
+              width={34}
+              height={34}
+              className="review-footer-company-logo"
+            />
+            <div className="review-footer-credit-text">
+              <span>{c.powered} <strong>HD Review</strong></span>
+              <span className="review-footer-company">by DA Smarketing Solutions</span>
+            </div>
+          </div>
+          <a href="/privacy" className="review-footer-privacy">{t.privacyLink}</a>
         </footer>
       </div>
     </main>
