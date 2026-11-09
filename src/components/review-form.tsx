@@ -105,7 +105,9 @@ export function ReviewForm({
             setPlatform(old.platform);
           const savedAnswers = answersSchema.safeParse(old.answers);
           if (savedAnswers.success && old.configVersion === configVersion) {
-            setAnswers(savedAnswers.data);
+            // An older draft may have a first-visit answer from the removed UI.
+            // Do not silently include that now-hidden field in a new review.
+            setAnswers({ ...savedAnswers.data, visit: "" });
             if (
               old.draft &&
               typeof old.draft.body === "string" &&
