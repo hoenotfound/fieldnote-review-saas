@@ -34,7 +34,7 @@ export function networkKey(request: Request, businessId: string) {
   let identity = "unverified-network";
   if (process.env.RENDER === "true") {
     const ip = request.headers.get("cf-connecting-ip")?.trim();
-    if (request.headers.has("cf-ray") && ip && isIP(ip))
+    if (request.headers.get("cf-ray")?.trim() && ip && isIP(ip))
       identity = ip;
   } else if (process.env.APP_MODE === "local") {
     // Local-only proxy simulation for tests; never used in hosted production.
