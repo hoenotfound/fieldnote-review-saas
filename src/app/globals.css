@@ -1763,8 +1763,8 @@ input[type="checkbox"] {
   }
   .step-heading h1 {
     font-size: 30px;
-  line-height: 1.22;
-}
+    line-height: 1.22;
+  }
   .review-panel .panel-lead {
     font-size: 15px;
   }
@@ -1785,19 +1785,19 @@ input[type="checkbox"] {
     margin-top: 25px;
   }
   .review-panel .answer-choice {
-    font-size: 13px;
+    font-size: 14px;
     padding: 11px 8px;
-  min-height: 48px;
-}
+    min-height: 48px;
+  }
   .destination-tiles {
     gap: 8px;
   }
   .destination-tiles button {
     gap: 7px;
     padding: 12px 8px;
-    font-size: 13px;
-  min-height: 56px;
-}
+    font-size: 14px;
+    min-height: 56px;
+  }
   .destination-icon {
     width: 27px;
     height: 30px;
