@@ -1,10 +1,10 @@
 :root {
-  --paper: #f7f6f1;
-  --ink: #243c32;
-  --muted: #6c766e;
-  --line: #dce2d8;
-  --accent: #35664f;
-  --soft: #edf2e9;
+  --paper: #f6f9fb;
+  --ink: #172e45;
+  --muted: #627384;
+  --line: #dae5ea;
+  --accent: #0c6b74;
+  --soft: #e8f5f5;
 }
 * {
   box-sizing: border-box;
@@ -144,7 +144,7 @@ small {
   border: 1px solid var(--line);
   padding: 36px;
   border-radius: 6px;
-  background: #e8ede1;
+  background: #e8f4f5;
   transform: rotate(2deg);
   box-shadow: 14px 18px 0 #edece5;
 }
@@ -532,7 +532,7 @@ input[type="checkbox"] {
   margin: 3px 0;
 }
 .sidebar a.active {
-  background: #e7eddf;
+  background: #e6f2f4;
   font-weight: 700;
 }
 .sidebar .label {
@@ -919,12 +919,12 @@ input[type="checkbox"] {
 .review-scene {
   --accent-ink: #fff;
   min-height: 100svh;
-  background: #f4f5f0;
+  background: #f5f8fa;
   position: relative;
   isolation: isolate;
   overflow-x: clip;
   padding: 24px 20px 32px;
-  color: #253e33;
+  color: #17324a;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "PingFang TC", "Microsoft YaHei", sans-serif;
   font-size: 16px;
   line-height: 1.55;
@@ -984,7 +984,7 @@ input[type="checkbox"] {
   letter-spacing: -0.8px;
 }
 .mini-wordmark > span {
-  color: #87986d;
+  color: #0c6b74;
 }
 .mini-wordmark svg {
   margin-right: 2px;
@@ -1388,7 +1388,7 @@ input[type="checkbox"] {
   border: 3px solid var(--accent);
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 6px #253e331a;
+  box-shadow: 0 2px 6px #17324a1a;
 }
 .review-panel input.spend-range::-moz-range-thumb {
   width: 20px;
@@ -1396,7 +1396,7 @@ input[type="checkbox"] {
   border: 3px solid var(--accent);
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 6px #253e331a;
+  box-shadow: 0 2px 6px #17324a1a;
 }
 .spend-amount-row {
   display: flex;
@@ -1768,7 +1768,7 @@ input[type="checkbox"] {
   font-size: 15px;
   font-weight: 400;
   margin-left: 3px;
-  color: #566b4e;
+  color: #175b70;
 }
 .complete-step .primary-action {
   margin-top: 30px;
@@ -1963,4 +1963,58 @@ input[type="checkbox"] {
 :lang(zh-CN) .shop-heading h2,
 :lang(zh-TW) .shop-heading h2 {
   letter-spacing: normal;
+}
+
+/* HD Review identity. Merchant colours still control the customer experience. */
+.hd-brand { display: inline-flex; align-items: center; gap: 11px; min-width: 0; line-height: 1.1; white-space: nowrap; }
+.hd-brand-mark {
+  position: relative; display: grid; place-items: center; flex: 0 0 45px;
+  width: 45px; height: 45px; background: #172e45; border-radius: 13px 13px 13px 5px;
+  color: #fff; font: 800 17px/1 system-ui, -apple-system, sans-serif; letter-spacing: -1.2px;
+}
+.hd-brand-spark { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #40d1c4; top: 5px; right: 5px; }
+.hd-brand-lockup { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.hd-brand-title { font: 750 26px/1 system-ui, -apple-system, sans-serif; letter-spacing: -1.3px; color: #172e45; }
+.hd-brand-point { color: #0c8b91; }
+.hd-brand-byline { color: #627384; font: 600 9px/1.2 system-ui, -apple-system, sans-serif; letter-spacing: .2px; }
+.hd-brand--compact { gap: 8px; }
+.hd-brand--compact .hd-brand-mark { width: 33px; height: 33px; flex-basis: 33px; border-radius: 9px 9px 9px 3px; font-size: 13px; }
+.hd-brand--compact .hd-brand-spark { width: 5px; height: 5px; top: 4px; right: 4px; }
+.hd-brand--compact .hd-brand-title { font-size: 20px; letter-spacing: -.9px; }
+.mini-wordmark .hd-brand { letter-spacing: normal; }
+.mini-wordmark .hd-brand-title { color: #172e45; }
+.hd-review-attribution { color: #627384; font-size: 11px; }
+.hero-art { transform: rotate(1deg); background: #e8f4f5; }
+.note { background: #fff; }
+.footer a { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 580px) {
+  .hd-brand-mark { width: 39px; height: 39px; flex-basis: 39px; }
+  .hd-brand-title { font-size: 23px; }
+  .hd-brand-byline { font-size: 8px; }
+  .topbar .wordmark { min-width: 0; }
+  .hd-review-attribution { display: block; margin-top: 3px; }
+}
+
+/* Parent-company logo is separate from each business's logo and the HD Review product mark. */
+.hd-brand-byline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.hd-brand-company-mark,
+.hd-review-company-mark,
+.hd-footer-company img {
+  object-fit: contain;
+  background: #fff;
+  flex-shrink: 0;
+}
+.hd-brand-company-mark { width: 18px; height: 18px; border-radius: 5px; }
+.hd-footer-company { display: inline-flex; align-items: center; gap: 8px; }
+.hd-footer-company img { width: 30px; height: 30px; border-radius: 7px; }
+.hd-review-company-mark {
+  display: inline-block;
+  vertical-align: middle;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
 }

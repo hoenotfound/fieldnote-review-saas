@@ -1,6 +1,6 @@
-# Fieldnote: lean independent review MVP
+# HD Review: AI-assisted customer review SaaS
 
-Working name only. Local customer-experience update, 8 November 2026. This is a new application. It does not depend on or access DA AI Chatbot, BrandWriter code, or BrandWriter APIs.
+HD Review is a product by DA Smarketing Solutions. Previously developed as Fieldnote, this rebrand changes public-facing names and styling only. Repository names, storage keys, QR URLs, application environment variables, and the existing database schema are intentionally preserved to avoid breaking current customers and integrations. Local customer-experience update, 8 November 2026. This is a new application. It does not depend on or access DA AI Chatbot, BrandWriter code, or BrandWriter APIs.
 
 For an existing installation, follow `CUSTOMER_EXPERIENCE_UPDATE.md`. Do not rerun setup or seed. Pilot preparation is in `PILOT_SETUP.md`.
 
