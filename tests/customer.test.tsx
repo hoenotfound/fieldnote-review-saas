@@ -247,6 +247,39 @@ test("configured choices translate without losing answers; manual notes include 
   assert.doesNotMatch(text, /蛋糕/);
 });
 
+test("optional spending starts blank, slider syncs with exact amount and Clear removes it", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  const amount = r.getByRole("spinbutton", { name: "Amount spent (RM)" }) as HTMLInputElement;
+  const slider = r.getByRole("slider", { name: "Spending amount slider" }) as HTMLInputElement;
+  assert.equal(amount.value, "");
+  assert.equal(slider.value, "0");
+  assert.equal(r.queryByRole("button", { name: "Clear amount" }), null);
+  testing.fireEvent.change(slider, { target: { value: "420" } });
+  assert.equal(amount.value, "420");
+  await u.clear(amount);
+  await u.type(amount, "6500.25");
+  assert.equal(Number(amount.value), 6500.25);
+  assert.equal(slider.value, "5000");
+  await u.click(r.getByRole("button", { name: "Clear amount" }));
+  assert.equal(amount.value, "");
+  assert.equal(slider.value, "0");
+  await u.click(r.getByRole("button", { name: "Could improve" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  const review = (r.getByLabelText("Review") as HTMLTextAreaElement).value;
+  assert.doesNotMatch(review, /Total spent: RM/);
+});
+test("customer destination buttons use recognizable brand assets", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  const google = r.getByRole("button", { name: "Google Reviews" });
+  const red = r.getByRole("button", { name: "Xiaohongshu" });
+  assert.match(google.querySelector("img")?.getAttribute("src") || "", /Google_Maps_icon_%282026%29/);
+  assert.equal(red.querySelector("img")?.getAttribute("src"), "/brands/xiaohongshu.svg");
+  assert.equal(google.querySelector("svg:not(img svg)"), null);
+});
 test("optional amount accepts cents and Finish clears guided answers", async () => {
   const u = userEvent.setup();
   globalThis.fetch = async () => Response.json({ ok: true });
