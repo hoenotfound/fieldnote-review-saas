@@ -1,7 +1,8 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { sql } from "drizzle-orm";
-import { rows, getDb } from "@/lib/db";
+import { rows, getDb, type DB } from "@/lib/db";
+import { limitGuestIssuance, networkKey } from "@/lib/rate-limits";
 import { publicLocation, finishGuest } from "@/lib/reviews";
 import { AppError, errorResponse, hash, requireOrigin } from "@/lib/security";
 import { origin } from "@/lib/auth";
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
     const raw = await req.text();
     if (raw.length > 1000) throw new AppError("INVALID_INPUT", 413);
     const body = JSON.parse(raw);
-    if (typeof body.slug !== "string" || body.slug.length > 100)
+    if (!body || typeof body.slug !== "string" || body.slug.length > 100)
       throw new AppError("INVALID_INPUT");
     const loc = await publicLocation(body.slug);
     if (!loc) throw new AppError("NOT_FOUND", 404);
@@ -33,11 +34,16 @@ export async function POST(req: Request) {
     )
       return Response.json({ ok: true });
     const token = randomBytes(32).toString("hex");
-    await (
-      await getDb()
-    ).execute(
-      sql`insert into guest_session(id,token_hash,location_id,expires_at) values(${randomUUID()},${hash(token)},${loc.id},now()+interval '2 hours')`,
-    );
+    const key = networkKey(req, loc.business_id);
+    const db = await getDb();
+    await db.transaction(async (t) => {
+      const tx = t as unknown as DB;
+      await limitGuestIssuance(tx, loc.business_id, key);
+      await tx.execute(
+        sql`insert into guest_session(id,token_hash,location_id,expires_at,network_key)
+            values(${randomUUID()},${hash(token)},${loc.id},now()+interval '2 hours',${key})`,
+      );
+    });
     jar.set(name, token, {
       httpOnly: true,
       secure: origin().startsWith("https://"),
