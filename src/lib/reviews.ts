@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 import { safeAiFailure, safeAiResponse } from "./ai-diagnostics";
+import { limitGeneration } from "./rate-limits";
 import { getDb, rows, type DB } from "./db";
 import { AppError, hash, seal, unseal } from "./security";
 import {
@@ -79,7 +80,7 @@ export async function generate(
   const prepared = await db.transaction(async (t) => {
     const tx = t as unknown as DB;
     const guest = (
-      await rows<{ id: string; location_id: string; attempts: number }>(
+      await rows<{ id: string; location_id: string; attempts: number; network_key: string | null }>(
         sql`select * from guest_session where id=${guestId} and expires_at>now() for update`,
         tx,
       )
@@ -151,12 +152,13 @@ export async function generate(
     if (b.used + b.reserved >= b.allowance)
       throw new AppError("QUOTA_EXHAUSTED", 429);
     if (b.reserved >= 2) throw new AppError("BUSY", 429);
-    await tx.execute(
-      sql`insert into ai_daily_budget(day,attempts) values(current_date,0) on conflict do nothing`,
-    );
     const cap = Math.max(
       1,
       Math.min(10000, Number(process.env.AI_DAILY_ATTEMPT_LIMIT) || 100),
+    );
+    await limitGeneration(tx, b.id, guest.network_key, cap);
+    await tx.execute(
+      sql`insert into ai_daily_budget(day,attempts) values(current_date,0) on conflict do nothing`,
     );
     if (
       !(
