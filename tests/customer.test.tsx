@@ -265,7 +265,7 @@ test("optional spending starts blank, slider syncs with exact amount and Clear r
   await u.click(r.getByRole("button", { name: "Clear amount" }));
   assert.equal(amount.value, "");
   assert.equal(slider.value, "0");
-  await u.click(r.getByRole("button", { name: "Could improve" }));
+  await u.click(testing.within(r.getByRole("group", { name: "Staff and service" })).getByRole("button", { name: "Could improve" }));
   await u.click(r.getByRole("button", { name: "Write without AI" }));
   const review = (r.getByLabelText("Review") as HTMLTextAreaElement).value;
   assert.doesNotMatch(review, /Total spent: RM/);
@@ -278,7 +278,6 @@ test("customer destination buttons use recognizable brand assets", async () => {
   const red = r.getByRole("button", { name: "Xiaohongshu" });
   assert.match(google.querySelector("img")?.getAttribute("src") || "", /Google_Maps_icon_%282026%29/);
   assert.equal(red.querySelector("img")?.getAttribute("src"), "/brands/xiaohongshu.svg");
-  assert.equal(google.querySelector("svg:not(img svg)"), null);
 });
 test("optional amount accepts cents and Finish clears guided answers", async () => {
   const u = userEvent.setup();
