@@ -13,8 +13,8 @@ jobs:
           MAINTENANCE_TOKEN: ${{ secrets.FIELDNOTE_MAINTENANCE_TOKEN }}
         run: |
           if [ -z "$MAINTENANCE_TOKEN" ]; then
-            echo "::notice::Configure FIELDNOTE_MAINTENANCE_TOKEN to enable daily cleanup"
-            exit 0
+            echo "::error::Retention cleanup is not configured: FIELDNOTE_MAINTENANCE_TOKEN is missing."
+            exit 1
           fi
           curl --fail-with-body --show-error --silent \
             --max-time 180 --retry 2 --request POST \
