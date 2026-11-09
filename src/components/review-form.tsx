@@ -734,7 +734,7 @@ export function ReviewForm({
               <div className="generate-action">
                 <button
                   className="btn full primary-action"
-                  disabled={!consent || busy || !ready}
+                  disabled={!consent || busy || !ready || (challengeRequired && !challengeToken)}
                   onClick={generate}
                 >
                   {busy ? (
