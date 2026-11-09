@@ -72,6 +72,11 @@ const en = {
     "AI assistance is paused for this business. Manual writing remains available.",
   retry:
     "The request did not finish. Your text is still here. Try again or use your own words.",
+  serverClearUnconfirmed:
+    "This device has been cleared. Server cleanup could not be confirmed; the session expires automatically.",
+  privacyLink: "Privacy information",
+  rateLimited:
+    "AI requests are temporarily limited here. You can still write and share manually.",
 };
 type Copy = typeof en;
 const cn: Copy = {
@@ -128,6 +133,9 @@ const cn: Copy = {
   expired: "会话已过期，请刷新页面重新开始。",
   subscription: "此商家的 AI 功能已暂停，仍可手动撰写。",
   retry: "请求未完成，你的文字仍然保留。请重试或使用自己的文字。",
+  serverClearUnconfirmed: "已清除此设备上的内容，但暂时无法确认服务器端清除。会话会自动过期。",
+  privacyLink: "隐私说明",
+  rateLimited: "目前 AI 请求次数受限。你仍可自行撰写并分享。",
 };
 const tw: Copy = {
   badge: "保留你的真實感受",
@@ -183,6 +191,9 @@ const tw: Copy = {
   expired: "工作階段已過期，請重新整理頁面。",
   subscription: "此商家的 AI 功能已暫停，仍可手動撰寫。",
   retry: "請求未完成，你的文字仍然保留。請重試或使用自己的文字。",
+  serverClearUnconfirmed: "已清除此裝置上的內容，但暫時無法確認伺服器端清除。工作階段會自動到期。",
+  privacyLink: "隱私說明",
+  rateLimited: "目前 AI 請求次數受限。你仍可自行撰寫並分享。",
 };
 const ms: Copy = {
   badge: "PENGALAMAN ANDA, LEBIH JELAS",
@@ -253,6 +264,11 @@ const ms: Copy = {
     "Bantuan AI dijeda untuk perniagaan ini. Penulisan manual masih tersedia.",
   retry:
     "Permintaan tidak selesai. Teks anda masih ada. Cuba lagi atau guna ayat sendiri.",
+  serverClearUnconfirmed:
+    "Kandungan telah dipadam pada peranti ini. Pemadaman pada pelayan belum dapat disahkan; sesi tamat secara automatik.",
+  privacyLink: "Maklumat privasi",
+  rateLimited:
+    "Permintaan AI dihadkan buat sementara. Anda masih boleh menulis dan berkongsi sendiri.",
 };
 export const translations: Record<Locale, Copy> = {
   en,
@@ -261,7 +277,8 @@ export const translations: Record<Locale, Copy> = {
   ms,
 };
 export function errorText(code: string, t: Copy) {
-  if (["QUOTA_EXHAUSTED", "DAILY_LIMIT"].includes(code)) return t.quota;
+  if (["QUOTA_EXHAUSTED", "DAILY_LIMIT", "BUSINESS_DAILY_LIMIT"].includes(code)) return t.quota;
+  if (["SESSION_RATE_LIMIT", "AI_RATE_LIMIT"].includes(code)) return t.rateLimited;
   if (code === "SESSION_LIMIT") return t.limit;
   if (["ALREADY_RUNNING", "BUSY"].includes(code)) return t.busy;
   if (code === "SESSION_EXPIRED") return t.expired;
