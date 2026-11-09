@@ -691,3 +691,44 @@ test("first expired kiosk click cannot turn an old answer into a new manual draf
     window.history.replaceState({}, "", "/");
   }
 });
+
+
+test("compact progress steps provide screen-reader labels and update across three stages", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  const welcomeSteps = r.getByRole("list", { name: "Step 1 of 3" });
+  const firstItems = testing.within(welcomeSteps).getAllByRole("listitem");
+  assert.equal(firstItems.length, 3);
+  assert.equal(firstItems[0].getAttribute("aria-current"), "step");
+  assert.equal(firstItems[1].hasAttribute("aria-current"), false);
+  assert.match(firstItems[0].textContent || "", /Step 1 of 3: Language/);
+  assert.match(firstItems[1].textContent || "", /Step 2 of 3: Your experience/);
+
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  const visitSteps = r.getByRole("list", { name: "Step 2 of 3" });
+  const secondItems = testing.within(visitSteps).getAllByRole("listitem");
+  assert.equal(secondItems[1].getAttribute("aria-current"), "step");
+  await u.type(r.getByLabelText("What stood out?"), "Friendly staff, but the service was slow.");
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  const draftSteps = r.getByRole("list", { name: "Step 3 of 3" });
+  const thirdItems = testing.within(draftSteps).getAllByRole("listitem");
+  assert.equal(thirdItems[2].getAttribute("aria-current"), "step");
+  assert.equal(thirdItems[2].textContent?.includes("Review and share"), true);
+});
+
+test("Chinese and Malay progress indicators retain translated labels and privacy access", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  assert.equal(r.getAllByRole("link", { name: "Privacy information" }).length, 1);
+  assert.ok(r.getByText("by DA Smarketing Solutions"));
+  await u.click(r.getByRole("button", { name: "简体中文" }));
+  const chineseList = r.getByRole("list");
+  assert.match(chineseList.textContent || "", /语言/);
+  assert.equal(testing.within(chineseList).getAllByRole("listitem")[0].getAttribute("aria-current"), "step");
+  await u.click(r.getByRole("button", { name: "Bahasa Melayu" }));
+  const malayList = r.getByRole("list");
+  assert.match(malayList.textContent || "", /Langkah/);
+  assert.match(malayList.textContent || "", /Bahasa/);
+  await u.click(r.getByRole("button", { name: "Tulis ulasan saya" }));
+  assert.equal(testing.within(r.getByRole("list")).getAllByRole("listitem")[1].getAttribute("aria-current"), "step");
+});

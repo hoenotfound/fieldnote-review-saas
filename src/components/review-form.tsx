@@ -462,8 +462,6 @@ export function ReviewForm({
         } as React.CSSProperties
       }
     >
-      <div className="review-orbit orbit-one" aria-hidden="true" />
-      <div className="review-orbit orbit-two" aria-hidden="true" />
       <div className="review-shell">
         <header className="review-masthead">
           <span className="mini-wordmark">
@@ -517,10 +515,11 @@ export function ReviewForm({
               {[c.language, c.experience, c.review].map((label, i) => (
                 <li
                   key={i}
-                  aria-label={label}
                   className={i + 1 < step ? "done" : i + 1 === step ? "current" : ""}
                   aria-current={i + 1 === step ? "step" : undefined}
-                />
+                >
+                  <span className="sr-only">{c.step} {i + 1} {c.of} 3: {label}</span>
+                </li>
               ))}
             </ol>
           </div>
