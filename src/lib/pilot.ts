@@ -47,11 +47,31 @@ export function safeStartupFailure(stage: string, error: unknown) {
   return `Pilot check failed at ${safeStage}. Check the database, account settings and server configuration. No credentials are printed.`;
 }
 
-/** The Netlify trial NEVER reads the shared DATABASE_URL variable. */
+/** Netlify must never use the generic DATABASE_URL from an extension.
+ * Upgrade only the approved Neon trial URL to full TLS certificate verification.
+ * Never silently downgrade or override an unsafe SSL mode.
+ */
 export function databaseConnectionUrl(env: Record<string, string | undefined>) {
-  return env.HOSTING_PROVIDER === "netlify"
-    ? env.FIELDNOTE_TRIAL_DATABASE_URL
-    : env.DATABASE_URL;
+  if (env.HOSTING_PROVIDER !== "netlify") return env.DATABASE_URL;
+  const raw = env.FIELDNOTE_TRIAL_DATABASE_URL;
+  if (!raw) return raw;
+  try {
+    const db = new URL(raw);
+    const sslModes = db.searchParams.getAll("sslmode");
+    if (
+      !["postgres:", "postgresql:"].includes(db.protocol) ||
+      !db.hostname.endsWith(".neon.tech") ||
+      !db.hostname.includes("-pooler.") ||
+      db.pathname !== "/fieldnote_trial" ||
+      sslModes.some((mode) => mode !== "require" && mode !== "verify-full")
+    ) return raw;
+    // Normalizes an omitted mode, Neon default require, or duplicate secure
+    // sslmode parameters to one explicit verify-full before pg sees the URL.
+    db.searchParams.set("sslmode", "verify-full");
+    return db.toString();
+  } catch {
+    return raw;
+  }
 }
 
 export function pilotProblems(env: Record<string, string | undefined>) {

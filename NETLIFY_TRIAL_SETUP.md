@@ -31,7 +31,7 @@ Use `.env.netlify-trial.example` as a checklist. Enter values in **Netlify's Env
 - `APP_ORIGIN=https://YOUR-SITE.netlify.app` (exact Netlify primary URL; no trailing path)
 - `REVIEW_DATABASE_APPROVED=yes`
 - `NETLIFY_TRIAL_MARKER=fieldnote-netlify-trial-morning-cloud-02172364`
-- `FIELDNOTE_TRIAL_DATABASE_URL`: Copy a **pooled** PostgreSQL connection string from the dedicated Neon trial project, **database fieldnote_trial**, with `sslmode=verify-full`; do not copy Fieldnote or DA Chatbot production URLs. Set the Netlify variable's scope to include **Builds and Functions**. The trial intentionally ignores any generic `DATABASE_URL` (including one from an extension).
+- `FIELDNOTE_TRIAL_DATABASE_URL`: Copy a **pooled** PostgreSQL connection string from the dedicated Neon trial project, **database fieldnote_trial**, using the normal Neon `sslmode=require` or `sslmode=verify-full` parameter (an omitted mode is also secured automatically). The app explicitly upgrades the trial connection to `sslmode=verify-full` before connecting; do not copy Fieldnote or DA Chatbot production URLs. Set the Netlify variable's scope to include **Builds and Functions**. The trial intentionally ignores any generic `DATABASE_URL` (including one from an extension).
 - `BETTER_AUTH_SECRET`: new random secret, at least 32 characters, **different from Render**.
 - `MAINTENANCE_SECRET`: another new random secret, at least 32 characters, **different from Render**.
 - `AI_MODE=gemini`, `GEMINI_API_KEY` (prefer separate trial key), `GEMINI_MODEL` (supported tested model)

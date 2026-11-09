@@ -36,10 +36,25 @@ test("Netlify preflight accepts only a dedicated site with a separate database m
   assert.notEqual(missing.status, 0);
   assert.match(missing.stderr, /Missing FIELDNOTE_TRIAL_DATABASE_URL/);
   assert.ok(pilotProblems(withoutDedicatedUrl).length);
-  const wrongTls = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: env.FIELDNOTE_TRIAL_DATABASE_URL!.replace("sslmode=verify-full", "sslmode=require") };
-  const tls = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], { encoding: "utf8", env: wrongTls });
-  assert.notEqual(tls.status, 0);
-  assert.match(tls.stderr, /sslmode=verify-full/);
+  const standardNeonUrl = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: env.FIELDNOTE_TRIAL_DATABASE_URL!.replace("sslmode=verify-full", "sslmode=require") };
+  const tls = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], { encoding: "utf8", env: standardNeonUrl });
+  assert.equal(tls.status, 0, tls.stderr);
+  assert.equal(new URL(databaseConnectionUrl(standardNeonUrl)!).searchParams.get("sslmode"), "verify-full");
+  assert.match(tls.stdout, /upgraded to sslmode=verify-full/);
+
+  const noSslMode = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: env.FIELDNOTE_TRIAL_DATABASE_URL!.replace("?sslmode=verify-full", "") };
+  const absent = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], { encoding: "utf8", env: noSslMode });
+  assert.equal(absent.status, 0, absent.stderr);
+  assert.equal(new URL(databaseConnectionUrl(noSslMode)!).searchParams.get("sslmode"), "verify-full");
+
+  const duplicates = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: env.FIELDNOTE_TRIAL_DATABASE_URL + "&sslmode=require" };
+  assert.equal(new URL(databaseConnectionUrl(duplicates)!).searchParams.getAll("sslmode").join(","), "verify-full");
+
+  const disabledTls = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: env.FIELDNOTE_TRIAL_DATABASE_URL!.replace("sslmode=verify-full", "sslmode=disable") };
+  const insecure = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], { encoding: "utf8", env: disabledTls });
+  assert.notEqual(insecure.status, 0);
+  assert.match(insecure.stderr, /unsupported sslmode/);
+  assert.ok(pilotProblems(disabledTls).length);
   const wrongDb = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: env.FIELDNOTE_TRIAL_DATABASE_URL!.replace("/fieldnote_trial?", "/fieldnote?") };
   const db = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], { encoding: "utf8", env: wrongDb });
   assert.notEqual(db.status, 0);

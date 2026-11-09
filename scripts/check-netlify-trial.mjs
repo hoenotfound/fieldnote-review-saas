@@ -45,8 +45,14 @@ export function netlifyTrialProblems(env) {
         errors.push("FIELDNOTE_TRIAL_DATABASE_URL must use the Neon pooled host (-pooler).");
       if (db.pathname !== "/fieldnote_trial")
         errors.push("FIELDNOTE_TRIAL_DATABASE_URL must select the fieldnote_trial database.");
-      if (db.searchParams.get("sslmode") !== "verify-full")
-        errors.push("FIELDNOTE_TRIAL_DATABASE_URL must include sslmode=verify-full.");
+      // A standard Neon URL uses require. The app upgrades it (or an omitted
+      // sslmode) to verify-full before connecting, never weakening TLS.
+      const sslModes = db.searchParams.getAll("sslmode");
+      if (sslModes.some((mode) => !["require", "verify-full"].includes(mode)))
+        errors.push("FIELDNOTE_TRIAL_DATABASE_URL has an unsupported sslmode; use require or verify-full.");
+      if (!sslModes.some((mode) => !["require", "verify-full"].includes(mode)) &&
+          (sslModes.length === 0 || sslModes.some((mode) => mode === "require")))
+        console.log("Neon trial TLS: secure connection will be upgraded to sslmode=verify-full.");
     } catch {
       errors.push("FIELDNOTE_TRIAL_DATABASE_URL must be a valid PostgreSQL connection URL.");
     }
