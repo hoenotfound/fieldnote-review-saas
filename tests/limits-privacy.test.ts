@@ -275,3 +275,49 @@ test("JSON parsing enforces byte limits before allocation and rejects invalid JS
   );
   assert.deepEqual(await readLimitedJson(make('{"slug":"a"}'), 100), { slug: "a" });
 });
+test("legacy Render QR bridge redirects only Beleco codes and preserves the kiosk flag", async () => {
+  const { legacyBelecoRedirect } = await import("../src/lib/legacy-beleco-redirect");
+  const env = {
+    RENDER: "true",
+    APP_ORIGIN: "https://fieldnote-review-saas.onrender.com/",
+    FIELDNOTE_BELECO_NETLIFY_REDIRECT: "true",
+  };
+  const puchong = "3c5c651505c14e46ae729d33";
+  const sri = "af4bc34b41cb4adaa1d0e07d";
+  const puchongSlug = "beleco-clinic-puchong-5f208684220a";
+  const sriSlug = "beleco-clinic-sri-petaling-473a46a79e90";
+  for (const code of [puchong,sri]) {
+    const url = legacyBelecoRedirect(
+      "qr",code,"https://fieldnote-review-saas.onrender.com/q/" + code +
+        "?kiosk=1&redirect=https://evil.example&token=ignore",
+      env,
+    );
+    assert.equal(url, "https://fieldnote-review.netlify.app/q/" + code + "?kiosk=1");
+    assert.equal(legacyBelecoRedirect(
+      "qr",code,"https://fieldnote-review-saas.onrender.com/q/" + code,env,
+    ),"https://fieldnote-review.netlify.app/q/" + code);
+  }
+  for (const slug of [puchongSlug,sriSlug]) {
+    assert.equal(
+      legacyBelecoRedirect("review",slug,
+        "https://fieldnote-review-saas.onrender.com/r/" + slug + "?kiosk=1&bad=1",
+        env),
+      "https://fieldnote-review.netlify.app/r/" + slug + "?kiosk=1",
+    );
+  }
+  assert.equal(legacyBelecoRedirect("qr","unknown",
+    "https://fieldnote-review-saas.onrender.com/q/unknown",env),null);
+  assert.equal(legacyBelecoRedirect("review","netlify-demo",
+    "https://fieldnote-review-saas.onrender.com/r/netlify-demo",env),null);
+  for (const override of [
+    { FIELDNOTE_BELECO_NETLIFY_REDIRECT: "false" },
+    { APP_ORIGIN: "https://another-site.onrender.com" },
+    { HOSTING_PROVIDER: "netlify" },
+    { RENDER: "false" },
+  ]) {
+    assert.equal(legacyBelecoRedirect("qr",puchong,
+      "https://fieldnote-review-saas.onrender.com/q/" + puchong,
+      { ...env, ...override }),null);
+  }
+});
+
