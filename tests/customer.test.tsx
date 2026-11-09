@@ -75,6 +75,46 @@ test("switching interface language preserves original text and shows translated 
   );
   assert.ok(r.getByRole("button", { name: "不使用 AI，自己写" }));
 });
+test("Netlify trial identifies a failed guest session without exposing response content", async () => {
+  let aiCalled = false;
+  globalThis.fetch = async url => {
+    if (String(url) === "/api/guest")
+      return new Response("<html>private backend failure</html>", { status: 502, headers: { "content-type": "text/html" } });
+    aiCalled = true;
+    return Response.json({ title: "", body: "unexpected", demo: false });
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm
+    location={{ ...loc, business_id: "netlify-trial-only", slug: "netlify-demo" }}
+    local={false}
+  />);
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "Try a sample" }));
+  await u.click(r.getByLabelText(/Use AI to help/));
+  await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+  await testing.waitFor(() =>
+    assert.ok(r.getByText(/Trial diagnostics: guest session · HTTP 502 · INVALID_RESPONSE/)),
+  );
+  assert.equal(aiCalled, false);
+  assert.equal(r.queryByText(/private backend failure/), null);
+});
+
+test("Netlify trial shows a safe API error code, but ordinary businesses do not", async () => {
+  globalThis.fetch = async url =>
+    String(url) === "/api/guest"
+      ? Response.json({ error: "ORIGIN_REJECTED" }, { status: 403 })
+      : Response.json({ error: "AI_UNAVAILABLE" }, { status: 503 });
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={{ ...loc, business_id: "netlify-trial-only", slug: "netlify-demo" }} local={false} />);
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "Try a sample" }));
+  await u.click(r.getByLabelText(/Use AI to help/));
+  await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+  await testing.waitFor(() =>
+    assert.ok(r.getByText(/Trial diagnostics: guest session · HTTP 403 · ORIGIN_REJECTED/)),
+  );
+});
+
 test("one generation request returns editable draft with explicit simulated label", async () => {
   let calls = 0;
   globalThis.fetch = async (input, init) => {

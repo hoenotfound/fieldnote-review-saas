@@ -67,6 +67,7 @@ export function ReviewForm({
   const [finishing, setFinishing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [trialDiagnostic, setTrialDiagnostic] = useState("");
   const [photos, setPhotos] = useState<Photo[]>([]);
   const photoRef = useRef<Photo[]>([]);
   const resultRef = useRef<HTMLElement>(null);
@@ -83,6 +84,7 @@ export function ReviewForm({
     new URLSearchParams(window.location.search).get("kiosk") === "1";
   const t = translations[locale];
   const storageKey = "fieldnote:" + location.slug;
+  const isNetlifyTrial = location.business_id === "netlify-trial-only" && location.slug === "netlify-demo";
   useEffect(() => {
     try {
       // Shared kiosks must never resurrect a previous visitor's draft.
@@ -198,6 +200,7 @@ export function ReviewForm({
   async function generate() {
     if (kioskExpired.current || busy) return;
     setError("");
+    setTrialDiagnostic("");
     setMessage("");
     setConfirmed(false);
     if (!validAnswers || !hasExperience(experience, answers)) {
@@ -212,6 +215,8 @@ export function ReviewForm({
     const controller = new AbortController();
     activeGeneration.current = controller;
     const timer = window.setTimeout(() => controller.abort(), 35000);
+    let phase: "guest" | "generate" = "guest";
+    let httpStatus: number | null = null;
     setBusy(true);
     try {
       const guest = await fetch("/api/guest", {
@@ -221,8 +226,14 @@ export function ReviewForm({
         signal: controller.signal,
       });
       if (epoch !== requestEpoch.current || controller.signal.aborted) return;
-      if (!guest.ok) throw new Error((await guest.json()).error);
+      httpStatus = guest.status;
+      if (!guest.ok) {
+        const response = await guest.json().catch(() => null);
+        const code = typeof response?.error === "string" ? response.error : "INVALID_RESPONSE";
+        throw new Error(code);
+      }
       pendingKey.current ??= crypto.randomUUID();
+      phase = "generate";
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -238,12 +249,15 @@ export function ReviewForm({
         signal: controller.signal,
       });
       if (epoch !== requestEpoch.current || controller.signal.aborted) return;
-      const data = await res.json();
+      httpStatus = res.status;
+      const data = await res.json().catch(() => null);
       if (epoch !== requestEpoch.current || controller.signal.aborted) return;
       if (!res.ok) {
-        if (data.error !== "ALREADY_RUNNING") pendingKey.current = null;
-        throw new Error(data.error);
+        if (data?.error !== "ALREADY_RUNNING") pendingKey.current = null;
+        throw new Error(typeof data?.error === "string" ? data.error : "INVALID_RESPONSE");
       }
+      if (!data || typeof data.title !== "string" || typeof data.body !== "string")
+        throw new Error("INVALID_RESPONSE");
       setDraft(data);
       setDraftLanguage(output);
       setStage("review");
@@ -257,6 +271,13 @@ export function ReviewForm({
     } catch (e) {
       if (epoch !== requestEpoch.current) return;
       const code = e instanceof Error ? e.message : "REQUEST_FAILED";
+      if (isNetlifyTrial) {
+        // Do not display response bodies, IP addresses, review text, or server exceptions.
+        const safeCode = /^[A-Z][A-Z0-9_]{2,40}$/.test(code)
+          ? code
+          : controller.signal.aborted ? "TIMEOUT" : "NETWORK_ERROR";
+        setTrialDiagnostic(`Trial diagnostics: ${phase === "guest" ? "guest session" : "AI generation"} · ${httpStatus === null ? "no HTTP response" : `HTTP ${httpStatus}`} · ${safeCode}`);
+      }
       if (code === "AI_CHALLENGE_REQUIRED" && turnstileSiteKey) {
         setChallengeRequired(true);
         setChallengeToken("");
@@ -294,6 +315,7 @@ export function ReviewForm({
     setStage("review");
     setConfirmed(false);
     setError("");
+    setTrialDiagnostic("");
     setMessage("");
     pendingKey.current = null;
     setTimeout(
@@ -322,6 +344,7 @@ export function ReviewForm({
     setConsent(false);
     setConfirmed(false);
     setError("");
+    setTrialDiagnostic("");
     setMessage("");
     photoRef.current.forEach((p) => URL.revokeObjectURL(p.url));
     photoRef.current = [];
@@ -953,6 +976,9 @@ export function ReviewForm({
           {error && (
             <div role="alert" className="notice error">
               {error}
+              {isNetlifyTrial && trialDiagnostic && (
+                <p><small>{trialDiagnostic}</small></p>
+              )}
             </div>
           )}
           {message && stage !== "complete" && (
