@@ -66,6 +66,7 @@ export async function generate(
   input: GenerationInput,
   guestId: string,
   provider = writeDraft,
+  verifiedHuman = false,
 ): Promise<Draft> {
   const db = await getDb();
   await db.transaction((t) => sweep(t as unknown as DB));
@@ -80,7 +81,7 @@ export async function generate(
   const prepared = await db.transaction(async (t) => {
     const tx = t as unknown as DB;
     const guest = (
-      await rows<{ id: string; location_id: string; attempts: number; network_key: string | null }>(
+      await rows<{ id: string; location_id: string; attempts: number; network_key: string | null; client_key: string | null }>(
         sql`select * from guest_session where id=${guestId} and expires_at>now() for update`,
         tx,
       )
@@ -156,7 +157,7 @@ export async function generate(
       1,
       Math.min(10000, Number(process.env.AI_DAILY_ATTEMPT_LIMIT) || 100),
     );
-    await limitGeneration(tx, b.id, guest.network_key, cap);
+    await limitGeneration(tx, b.id, guest.network_key, cap, guest.client_key, verifiedHuman);
     await tx.execute(
       sql`insert into ai_daily_budget(day,attempts) values(current_date,0) on conflict do nothing`,
     );
