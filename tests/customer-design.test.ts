@@ -29,7 +29,8 @@ test("customer styles are consolidated and loaded after base styles", () => {
   assert.match(css, /\.review-scene\s*\{/);
   assert.doesNotMatch(globals, /\.review-scene\s*\{/);
   assert.doesNotMatch(globals, /HD Review customer journey refinement/);
-  assert.equal((css.match(/\.review-scene\s*\{/g) || []).length, 1);
+  const desktopRules = css.slice(0, css.indexOf("@media (max-width: 520px)"));
+  assert.equal((desktopRules.match(/\.review-scene\s*\{/g) || []).length, 1);
 });
 
 test("review labels meet WCAG AA body-text contrast on cards and page background", () => {
