@@ -2,7 +2,10 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { getDb } from "./db";
 import * as schema from "./schema";
-export const origin = () => process.env.APP_ORIGIN || "http://localhost:3000";
+// Origin headers omit trailing slashes. Normalize the configured public URL
+// before using it for CSRF validation, auth trusted origins or secure cookies.
+export const origin = () =>
+  new URL(process.env.APP_ORIGIN || "http://localhost:3000").origin;
 export async function makeAuth(bootstrap = false) {
   if (
     !process.env.BETTER_AUTH_SECRET ||
