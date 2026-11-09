@@ -127,48 +127,72 @@ export function CustomerQuestionnaire({
           ))}
         </fieldset>
       )}
-      <details className="visit-details">
-        <summary>{q.details}</summary>
-        <div className="form-grid">
-          <div className="field">
-            <label htmlFor="visit-type">{q.visit}</label>
-            <select
-              id="visit-type"
-              disabled={busy}
-              value={answers.visit}
-              onChange={(e) =>
-                onChange({
-                  ...answers,
-                  visit: e.target.value as Answers["visit"],
-                })
-              }
-            >
-              <option value="">{q.skip}</option>
-              <option value="first">{q.first}</option>
-              <option value="returning">{q.returning}</option>
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="visit-spend">{q.spend}</label>
-            <input
-              id="visit-spend"
-              type="number"
-              min="0"
-              max="100000"
-              step="0.01"
-              disabled={busy}
-              value={spendText}
-              onChange={(e) => {
-                setSpendText(e.target.value);
-                onChange({
-                  ...answers,
-                  spend: e.target.value === "" ? null : Number(e.target.value),
-                });
-              }}
-            />
-          </div>
+
+      <fieldset className="spend-panel" disabled={busy}>
+        <legend>
+          {q.spendQuestion} <span className="spend-optional">{q.spendOptional}</span>
+        </legend>
+        <p id="spend-help">{q.spendHint}</p>
+        <div className="spend-range-scale" aria-hidden="true">
+          <span>RM 0</span>
+          <span>RM 5,000</span>
         </div>
-      </details>
+        <label className="sr-only" htmlFor="visit-spend-range">
+          {q.spendRange}
+        </label>
+        <input
+          id="visit-spend-range"
+          className="spend-range"
+          type="range"
+          min="0"
+          max="5000"
+          step="10"
+          aria-describedby="spend-help"
+          value={Math.max(0, Math.min(5000, Math.round((answers.spend ?? 0) / 10) * 10))}
+          onChange={(e) => {
+            const spend = Number(e.target.value);
+            setSpendText(String(spend));
+            onChange({ ...answers, spend });
+          }}
+        />
+        <div className="spend-amount-row">
+          <div className="spend-amount-field">
+            <label htmlFor="visit-spend">{q.spend}</label>
+            <div className="spend-input-wrap">
+              <span aria-hidden="true">RM</span>
+              <input
+                id="visit-spend"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                max="100000"
+                step="0.01"
+                placeholder="0.00"
+                value={spendText}
+                onChange={(e) => {
+                  setSpendText(e.target.value);
+                  onChange({
+                    ...answers,
+                    spend: e.target.value === "" ? null : Number(e.target.value),
+                  });
+                }}
+              />
+            </div>
+          </div>
+          {answers.spend !== null && (
+            <button
+              className="spend-clear"
+              type="button"
+              onClick={() => {
+                setSpendText("");
+                onChange({ ...answers, spend: null });
+              }}
+            >
+              {q.clearSpend}
+            </button>
+          )}
+        </div>
+      </fieldset>
     </section>
   );
 }

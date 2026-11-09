@@ -247,12 +247,71 @@ test("configured choices translate without losing answers; manual notes include 
   assert.doesNotMatch(text, /蛋糕/);
 });
 
+test("optional spending starts blank, slider syncs with exact amount and Clear removes it", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  const amount = r.getByRole("spinbutton", { name: "Amount spent (RM)" }) as HTMLInputElement;
+  const slider = r.getByRole("slider", { name: "Spending amount slider" }) as HTMLInputElement;
+  assert.equal(amount.value, "");
+  assert.equal(slider.value, "0");
+  assert.equal(r.queryByRole("button", { name: "Clear amount" }), null);
+  testing.fireEvent.change(slider, { target: { value: "420" } });
+  assert.equal(amount.value, "420");
+  await u.clear(amount);
+  await u.type(amount, "6500.25");
+  assert.equal(Number(amount.value), 6500.25);
+  assert.equal(slider.value, "5000");
+  await u.click(r.getByRole("button", { name: "Clear amount" }));
+  assert.equal(amount.value, "");
+  assert.equal(slider.value, "0");
+  await u.click(testing.within(r.getByRole("group", { name: "Staff and service" })).getByRole("button", { name: "Could improve" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  const review = (r.getByLabelText("Review") as HTMLTextAreaElement).value;
+  assert.doesNotMatch(review, /Total spent: RM/);
+});
+test("old first-visit question is removed while optional spend remains visible", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  assert.equal(r.queryByText("Visit details (optional)"), null);
+  assert.equal(r.queryByLabelText("Was this your first visit?"), null);
+  assert.equal(r.queryByRole("combobox", { name: "Was this your first visit?" }), null);
+  assert.ok(r.getByRole("slider", { name: "Spending amount slider" }));
+  assert.equal((r.getByRole("spinbutton", { name: "Amount spent (RM)" }) as HTMLInputElement).value, "");
+});
+test("restored legacy first-visit value is not silently included in a new review", async () => {
+  sessionStorage.setItem("fieldnote:demo", JSON.stringify({
+    saved: Date.now(),
+    started: true,
+    configVersion: JSON.stringify({ items: [] }),
+    experience: "The staff were helpful.",
+    answers: { items: [], ratings: {}, visit: "first", spend: null },
+    locale: "en",
+    output: "en",
+    platform: "google",
+  }));
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await testing.waitFor(() => assert.ok(r.getByRole("spinbutton", { name: "Amount spent (RM)" })));
+  assert.equal(r.queryByText("Visit details (optional)"), null);
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  assert.doesNotMatch((r.getByLabelText("Review") as HTMLTextAreaElement).value, /First visit/);
+});
+test("customer destination buttons use recognizable brand assets", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  const google = r.getByRole("button", { name: "Google Reviews" });
+  const red = r.getByRole("button", { name: "Xiaohongshu" });
+  assert.match(google.querySelector("img")?.getAttribute("src") || "", /Google_Maps_icon_%282026%29/);
+  assert.equal(red.querySelector("img")?.getAttribute("src"), "/brands/xiaohongshu.svg");
+});
 test("optional amount accepts cents and Finish clears guided answers", async () => {
   const u = userEvent.setup();
   globalThis.fetch = async () => Response.json({ ok: true });
   const r = testing.render(<ReviewForm location={loc} local />);
   await u.click(r.getByRole("button", { name: "Write my review" }));
-  await u.click(r.getByText("Visit details (optional)"));
   await u.type(r.getByLabelText("Amount spent (RM)"), "25.50");
   assert.equal(
     Number((r.getByLabelText("Amount spent (RM)") as HTMLInputElement).value),
@@ -272,7 +331,6 @@ test("optional amount accepts cents and Finish clears guided answers", async () 
   await testing.waitFor(() => assert.equal(r.queryByLabelText("Review"), null));
   await u.click(r.getByRole("button", { name: "Start another review" }));
   await u.click(r.getByRole("button", { name: "Write my review" }));
-  await u.click(r.getByText("Visit details (optional)"));
   assert.equal(
     r.queryAllByRole("button", { name: "Could improve", pressed: true }).length,
     0,

@@ -25,8 +25,6 @@ import {
   ArrowLeft,
   MapPin,
   Globe2,
-  Star,
-  BookOpen,
   Sparkles,
   X,
 } from "lucide-react";
@@ -107,7 +105,9 @@ export function ReviewForm({
             setPlatform(old.platform);
           const savedAnswers = answersSchema.safeParse(old.answers);
           if (savedAnswers.success && old.configVersion === configVersion) {
-            setAnswers(savedAnswers.data);
+            // An older draft may have a first-visit answer from the removed UI.
+            // Do not silently include that now-hidden field in a new review.
+            setAnswers({ ...savedAnswers.data, visit: "" });
             if (
               old.draft &&
               typeof old.draft.body === "string" &&
@@ -671,8 +671,13 @@ export function ReviewForm({
                       invalidate();
                     }}
                   >
-                    <span className="destination-icon google-icon">
-                      <Star size={20} />
+                    <span className="destination-icon google-icon" aria-hidden="true">
+                      <img
+                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Google_Maps_icon_%282026%29.svg/250px-Google_Maps_icon_%282026%29.svg.png"
+                        alt=""
+                        width={32}
+                        height={32}
+                      />
                     </span>
                     <span>{t.google}</span>
                     {platform === "google" && <Check size={16} />}
@@ -686,8 +691,13 @@ export function ReviewForm({
                       invalidate();
                     }}
                   >
-                    <span className="destination-icon red-icon">
-                      <BookOpen size={20} />
+                    <span className="destination-icon red-icon" aria-hidden="true">
+                      <img
+                        src="/brands/xiaohongshu.svg"
+                        alt=""
+                        width={32}
+                        height={32}
+                      />
                     </span>
                     <span>{t.xiaohongshu}</span>
                     {platform === "xiaohongshu" && <Check size={16} />}
