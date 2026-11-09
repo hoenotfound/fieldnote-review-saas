@@ -190,6 +190,7 @@ export function ReviewForm({
     setMessage("");
   }
   function edit(value: Partial<Draft>) {
+    if (kioskExpired.current) return;
     setDraft((old) => (old ? { ...old, ...value } : null));
     setConfirmed(false);
     setMessage("");
@@ -277,6 +278,7 @@ export function ReviewForm({
     }
   }
   function manual() {
+    if (kioskExpired.current) return;
     if (!validAnswers || !hasExperience(experience, answers)) {
       setError(t.more);
       return;
@@ -375,15 +377,19 @@ export function ReviewForm({
     const check = () => {
       if (Date.now() - lastActivity >= 5 * 60 * 1000) expire();
     };
-    const activity = () => {
-      // A first tap after the tablet wakes must not revive the old visit.
-      if (Date.now() - lastActivity >= 5 * 60 * 1000) {
+    const activity = (event: Event) => {
+      // Suppress this expired interaction before React receives an old click,
+      // input or submit handler; otherwise it could recreate a cleared draft.
+      if (reset || Date.now() - lastActivity >= 5 * 60 * 1000) {
         expire();
+        event.preventDefault();
+        event.stopImmediatePropagation();
       } else {
         lastActivity = Date.now();
       }
     };
-    for (const event of ["pointerdown", "keydown", "touchstart", "input"])
+    const activityEvents = ["pointerdown", "keydown", "touchstart", "input", "click", "change"];
+    for (const event of activityEvents)
       window.addEventListener(event, activity, true);
     window.addEventListener("focus", check);
     document.addEventListener("visibilitychange", check);
@@ -392,7 +398,7 @@ export function ReviewForm({
       window.clearInterval(interval);
       window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", check);
-      for (const event of ["pointerdown", "keydown", "touchstart", "input"])
+      for (const event of activityEvents)
         window.removeEventListener(event, activity, true);
     };
   }, [stage, storageKey, location.slug, isKiosk]);
