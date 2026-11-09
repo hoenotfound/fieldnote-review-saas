@@ -40,6 +40,37 @@ export function unseal(s: string) {
   d.setAuthTag(b.subarray(-16));
   return Buffer.concat([d.update(b.subarray(12, -16)), d.final()]).toString();
 }
+/** Stream with a strict byte limit. Do not buffer an unlimited request first. */
+export async function readLimitedJson(req: Request, maxBytes: number): Promise<unknown> {
+  const declared = req.headers.get("content-length");
+  if (declared && Number.isFinite(Number(declared)) && Number(declared) > maxBytes)
+    throw new AppError("INVALID_INPUT", 413);
+  const type = req.headers.get("content-type")?.split(";")[0]?.trim();
+  if (type !== "application/json" || !req.body)
+    throw new AppError("INVALID_INPUT", 415);
+  const reader = req.body.getReader();
+  const chunks: Buffer[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        void reader.cancel().catch(() => {});
+        throw new AppError("INVALID_INPUT", 413);
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw new AppError("INVALID_INPUT", 422);
+  }
+}
 export function requireOrigin(req: Request) {
   if (req.headers.get("origin") !== origin())
     throw new AppError("ORIGIN_REJECTED", 403);

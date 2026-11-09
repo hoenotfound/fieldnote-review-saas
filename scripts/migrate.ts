@@ -1,15 +1,10 @@
-// Explicitly run against a NEW, isolated Neon database only. Never an existing product database.
+// Explicitly apply to a new Fieldnote database or an existing verified Fieldnote database.
+// Never run against DA AI Chatbot or an unrelated database.
 import { Pool } from "pg";
 import { readFile, readdir } from "node:fs/promises";
 async function main() {
-  if (
-    process.env.APP_MODE === "local" ||
-    !process.env.DATABASE_URL ||
-    process.env.CONFIRM_NEW_REVIEW_DATABASE !== "yes"
-  )
-    throw new Error(
-      "Set a separate database and CONFIRM_NEW_REVIEW_DATABASE=yes.",
-    );
+  if (process.env.APP_MODE === "local" || !process.env.DATABASE_URL)
+    throw new Error("An isolated Fieldnote DATABASE_URL is required.");
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
   try {
     const tables = await pool.query(
@@ -30,16 +25,25 @@ async function main() {
       "audit_event",
       "review_app_meta",
       "business_logo",
+      "guest_rate_counter",
+      "business_daily_budget",
     ];
     if (tables.rows.some((r) => !allowed.includes(r.table_name)))
       throw new Error("Refusing database containing unrelated tables.");
-    if (
-      tables.rows.length &&
-      !tables.rows.some((r) => r.table_name === "review_app_meta")
-    )
-      throw new Error(
-        "Existing database is not marked as this independent app.",
+    const existing = tables.rows.length > 0;
+    if (existing) {
+      if (!tables.rows.some((r) => r.table_name === "review_app_meta"))
+        throw new Error("Existing database is not marked as Fieldnote.");
+      const marker = await pool.query(
+        "select 1 from review_app_meta where id='independent-review-mvp-v1'",
       );
+      if (marker.rowCount !== 1)
+        throw new Error("Existing database has no verified Fieldnote marker.");
+      if (process.env.CONFIRM_EXISTING_FIELDNOTE_MIGRATION !== "yes")
+        throw new Error("Set CONFIRM_EXISTING_FIELDNOTE_MIGRATION=yes.");
+    } else if (process.env.CONFIRM_NEW_REVIEW_DATABASE !== "yes") {
+      throw new Error("Set CONFIRM_NEW_REVIEW_DATABASE=yes.");
+    }
     await pool.query("begin");
     for (const file of (await readdir("migrations"))
       .filter((f) => /^\d+_.*\.sql$/.test(f))
@@ -54,7 +58,7 @@ async function main() {
 }
 main().catch(() => {
   console.error(
-    "Migration stopped. Confirm this is a new, isolated review database.",
+    "Migration stopped. Verify the separate Fieldnote database and explicit migration approval.",
   );
   process.exit(1);
 });

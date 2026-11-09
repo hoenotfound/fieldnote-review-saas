@@ -9,11 +9,19 @@ export default function Login() {
         <h1>Welcome back.</h1>
         <p>Manage your locations, branding and review allowance.</p>
         <LoginForm />
-        <div className="notice">
-          Local accounts are created by the seed command. Find their randomly
-          generated credentials in <code>local-access.txt</code>. Public
-          registration is disabled.
-        </div>
+        {process.env.APP_MODE === "local" ? (
+          <div className="notice">
+            Local accounts are created by the seed command. Find their randomly
+            generated credentials in <code>local-access.txt</code>. Public
+            registration is disabled.
+          </div>
+        ) : (
+          <div className="notice">
+            Accounts are provisioned by the Fieldnote administrator.
+            Contact your administrator if you need access. Public registration
+            is disabled.
+          </div>
+        )}
       </main>
       <Footer />
     </>

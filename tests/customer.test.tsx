@@ -373,3 +373,223 @@ test("reloading restores the draft but never restores export approval", async ()
     true,
   );
 });
+
+test("Finish removes browser draft even when the cleanup request fails", async () => {
+  const u = userEvent.setup();
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.type(r.getByLabelText("Your experience"), "A draft to erase offline.");
+  assert.ok(sessionStorage.getItem("fieldnote:demo"));
+  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Finish & clear" }));
+  await testing.waitFor(() => {
+    assert.equal(r.queryByLabelText("Review"), null);
+    assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
+    assert.match(r.getByRole("alert").textContent || "", /This device has been cleared/);
+  });
+});
+
+test("expired saved browser draft is deleted rather than kept in storage", async () => {
+  sessionStorage.setItem("fieldnote:demo", JSON.stringify({
+    saved: Date.now() - 3 * 60 * 60 * 1000,
+    started: true,
+    experience: "Private details that must expire.",
+  }));
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await testing.waitFor(() => {
+    assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
+  });
+  assert.equal(r.queryByLabelText("Your experience"), null);
+});
+
+test("kiosk mode deletes the previous visitor's saved draft and never persists a new one", async () => {
+  window.history.replaceState({}, "", "/r/demo?kiosk=1");
+  sessionStorage.setItem("fieldnote:demo", JSON.stringify({
+    saved: Date.now(),
+    started: true,
+    experience: "Private experience from an earlier customer.",
+  }));
+  try {
+    const u = userEvent.setup();
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await testing.waitFor(() => assert.equal(sessionStorage.getItem("fieldnote:demo"), null));
+    assert.equal(r.queryByLabelText("Your experience"), null);
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    await u.type(r.getByLabelText("Your experience"), "A new kiosk visitor");
+    assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
+  } finally {
+    window.history.replaceState({}, "", "/");
+  }
+});
+
+test("kiosk inactivity resets the form, and a delayed AI response cannot revive it", async () => {
+  window.history.replaceState({}, "", "/r/demo?kiosk=1");
+  const realNow = Date.now;
+  let time = realNow();
+  Date.now = () => time;
+  let release!: (value: Response) => void;
+  let started!: () => void;
+  const generationStarted = new Promise<void>(r => { started = r; });
+  globalThis.fetch = async url => {
+    if (String(url) === "/api/guest") return Response.json({ ok: true });
+    started();
+    return new Promise<Response>(r => { release = r; });
+  };
+  try {
+    const u = userEvent.setup();
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    await u.type(r.getByLabelText("Your experience"), "Private details to clear");
+    await u.click(r.getByLabelText(/Use AI to help/));
+    await u.click(r.getByRole("button", { name: "Help me write" }));
+    await generationStarted;
+    time += 5 * 60 * 1000 + 1;
+    window.dispatchEvent(new window.Event("focus"));
+    await testing.waitFor(() =>
+      assert.ok(r.getByRole("heading", { name: "A visit worth putting into words." })),
+    );
+    release(Response.json({ title: "", body: "Private details", demo: false }));
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    assert.equal(r.queryByLabelText("Review"), null);
+    assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    assert.equal((r.getByLabelText("Your experience") as HTMLTextAreaElement).value, "");
+  } finally {
+    Date.now = realNow;
+    window.history.replaceState({}, "", "/");
+  }
+});
+
+test("first kiosk tap after a suspended interval clears the previous visitor", async () => {
+  window.history.replaceState({}, "", "/r/demo?kiosk=1");
+  const realNow = Date.now;
+  let time = realNow();
+  Date.now = () => time;
+  globalThis.fetch = async () => Response.json({ ok: true });
+  try {
+    const u = userEvent.setup();
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    await u.type(r.getByLabelText("Your experience"), "Old customer");
+    time += 5 * 60 * 1000 + 1;
+    window.dispatchEvent(new window.Event("pointerdown"));
+    await testing.waitFor(() =>
+      assert.ok(r.getByRole("heading", { name: "A visit worth putting into words." })),
+    );
+    assert.equal(r.queryByLabelText("Review"), null);
+  } finally {
+    Date.now = realNow;
+    window.history.replaceState({}, "", "/");
+  }
+});
+
+test("AI rate threshold presents a human check and leaves manual writing enabled", async () => {
+  const u = userEvent.setup();
+  globalThis.fetch = async url => {
+    if (String(url) === "/api/guest") return Response.json({ ok: true });
+    return Response.json({ error: "AI_CHALLENGE_REQUIRED" }, { status: 429 });
+  };
+  const r = testing.render(
+    <ReviewForm location={loc} local turnstileSiteKey="public-test-key" />,
+  );
+  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.type(r.getByLabelText("Your experience"), "A short honest experience.");
+  await u.click(r.getByLabelText(/Use AI to help/));
+  await u.click(r.getByRole("button", { name: "Help me write" }));
+  await testing.waitFor(() =>
+    assert.ok(r.getByRole("group", { name: /quick verification/ })),
+  );
+  assert.equal(
+    (r.getByRole("button", { name: "Help me write" }) as HTMLButtonElement).disabled,
+    true,
+  );
+  assert.equal(
+    (r.getByRole("button", { name: "Use my own words" }) as HTMLButtonElement).disabled,
+    false,
+  );
+  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  assert.ok(r.getByLabelText("Review"));
+});
+
+test("completed human challenge token is supplied for one retry", async () => {
+  const previous = window.turnstile;
+  const oldFetch = globalThis.fetch;
+  const u = userEvent.setup();
+  let calls = 0;
+  let verifiedToken: unknown = null;
+  window.turnstile = {
+    render: (_container, options) => {
+      const completed = options.callback as (token: string) => void;
+      completed("single-use-test-token");
+      return "widget-test";
+    },
+    remove: () => {},
+  };
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "/api/guest") return Response.json({ ok: true });
+    calls++;
+    const body = JSON.parse(String(init?.body));
+    if (calls === 1)
+      return Response.json({ error: "AI_CHALLENGE_REQUIRED" }, { status: 429 });
+    verifiedToken = body.challengeToken;
+    return Response.json({ title: "", body: "Verified draft", demo: false });
+  };
+  try {
+    const r = testing.render(
+      <ReviewForm location={loc} local turnstileSiteKey="public-test-key" />,
+    );
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    await u.type(r.getByLabelText("Your experience"), "A reasonable experience.");
+    await u.click(r.getByLabelText(/Use AI to help/));
+    await u.click(r.getByRole("button", { name: "Help me write" }));
+    await testing.waitFor(() =>
+      assert.ok(r.getByRole("group", { name: /quick verification/ })),
+    );
+    await testing.waitFor(() =>
+      assert.equal(
+        (r.getByRole("button", { name: "Help me write" }) as HTMLButtonElement).disabled,
+        false,
+      ),
+    );
+    await u.click(r.getByRole("button", { name: "Help me write" }));
+    await testing.waitFor(() =>
+      assert.equal(
+        (r.getByLabelText("Review") as HTMLTextAreaElement).value,
+        "Verified draft",
+      ),
+    );
+    assert.equal(calls, 2);
+    assert.equal(verifiedToken, "single-use-test-token");
+  } finally {
+    window.turnstile = previous;
+    globalThis.fetch = oldFetch;
+  }
+});
+
+test("first expired kiosk click cannot turn an old answer into a new manual draft", async () => {
+  window.history.replaceState({}, "", "/r/demo?kiosk=1");
+  const realNow = Date.now;
+  let time = realNow();
+  Date.now = () => time;
+  globalThis.fetch = async () => Response.json({ ok: true });
+  try {
+    const u = userEvent.setup();
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    await u.type(r.getByLabelText("Your experience"), "Previous visitor's private words.");
+    const manual = r.getByRole("button", { name: "Use my own words" });
+    time += 5 * 60 * 1000 + 1;
+    manual.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
+    await testing.waitFor(() =>
+      assert.ok(r.getByRole("heading", { name: "A visit worth putting into words." })),
+    );
+    assert.equal(r.queryByLabelText("Review"), null);
+    assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    assert.equal((r.getByLabelText("Your experience") as HTMLTextAreaElement).value, "");
+  } finally {
+    Date.now = realNow;
+    window.history.replaceState({}, "", "/");
+  }
+});

@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { rows } from "@/lib/db";
 import { origin } from "@/lib/auth";
 export async function GET(
-  _: Request,
+  request: Request,
   { params }: { params: Promise<{ code: string }> },
 ) {
   const { code } = await params;
@@ -12,5 +12,9 @@ export async function GET(
     )
   )[0];
   if (!l) return new Response("This location is unavailable.", { status: 404 });
-  return Response.redirect(new URL("/r/" + l.slug, origin()), 302);
+  const destination = new URL("/r/" + encodeURIComponent(l.slug), origin());
+  // Never forward arbitrary user-provided parameters to the customer page.
+  if (new URL(request.url).searchParams.get("kiosk") === "1")
+    destination.searchParams.set("kiosk", "1");
+  return Response.redirect(destination, 302);
 }

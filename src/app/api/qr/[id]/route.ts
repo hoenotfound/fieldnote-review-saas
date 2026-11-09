@@ -21,7 +21,10 @@ export async function GET(
     )[0];
     if (!l) throw new AppError("NOT_FOUND", 404);
     await requireBusiness(u.id, l.business_id);
-    const png = await QRCode.toBuffer(origin() + "/q/" + l.qr_code, {
+    const kiosk = new URL(req.url).searchParams.get("kiosk") === "1";
+    const destination = origin() + "/q/" + encodeURIComponent(l.qr_code) +
+      (kiosk ? "?kiosk=1" : "");
+    const png = await QRCode.toBuffer(destination, {
       width: 600,
       margin: 3,
       errorCorrectionLevel: "M",
