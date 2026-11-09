@@ -389,3 +389,16 @@ test("Finish removes browser draft even when the cleanup request fails", async (
     assert.match(r.getByRole("alert").textContent || "", /This device has been cleared/);
   });
 });
+
+test("expired saved browser draft is deleted rather than kept in storage", async () => {
+  sessionStorage.setItem("fieldnote:demo", JSON.stringify({
+    saved: Date.now() - 3 * 60 * 60 * 1000,
+    started: true,
+    experience: "Private details that must expire.",
+  }));
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await testing.waitFor(() => {
+    assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
+  });
+  assert.equal(r.queryByLabelText("Your experience"), null);
+});
