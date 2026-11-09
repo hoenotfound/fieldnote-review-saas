@@ -925,7 +925,12 @@ input[type="checkbox"] {
   overflow-x: clip;
   padding: 24px 20px 32px;
   color: #253e33;
-}
+
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", "PingFang SC", "PingFang TC", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;}
 .review-scene::before {
   content: "";
   position: absolute;
@@ -994,7 +999,7 @@ input[type="checkbox"] {
   border: 0;
   width: auto;
   max-width: 150px;
-  font-size: 13px;
+  font-size: 14px;
   padding: 10px 4px;
 }
 .shop-heading {
@@ -1028,24 +1033,25 @@ input[type="checkbox"] {
   color: #345742;
 }
 .shop-overline {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1.6px;
+  letter-spacing: 1.1px;
   margin-bottom: 6px;
-  color: #6b7d6e;
+  color: #586b5b;
 }
 .shop-heading h2 {
   font-family: inherit;
-  font-size: 23px;
+  font-size: 24px;
   letter-spacing: -0.6px;
-  font-weight: 650;
+  font-weight: 720;
   margin: 0 0 5px;
   overflow-wrap: anywhere;
-}
+
+  line-height: 1.3;}
 .shop-address {
-  font-size: 11px;
-  line-height: 1.6;
-  color: #68766c;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #56675e;
   display: flex;
   align-items: flex-start;
   gap: 4px;
@@ -1065,9 +1071,9 @@ input[type="checkbox"] {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 11px;
-  font-weight: 550;
-  color: #677269;
+  font-size: 12px;
+  font-weight: 600;
+  color: #53645a;
   flex: 1;
   position: relative;
 }
@@ -1110,18 +1116,18 @@ input[type="checkbox"] {
   animation: panel-in 0.3s ease-out;
 }
 .review-panel h1 {
-  font-family: Georgia, "Noto Serif", serif;
-  font-weight: 400;
-  font-size: 40px;
-  line-height: 1.13;
-  letter-spacing: -1.4px;
+  font-family: inherit;
+  font-weight: 720;
+  font-size: clamp(32px, 4.5vw, 38px);
+  line-height: 1.2;
+  letter-spacing: -0.75px;
   margin: 0 0 12px;
   outline: none;
 }
 .review-panel .panel-lead {
-  font-size: 14px;
-  line-height: 1.75;
-  color: #697368;
+  font-size: 16px;
+  line-height: 1.65;
+  color: #59685e;
   margin: 0;
 }
 .welcome-step {
@@ -1156,8 +1162,8 @@ input[type="checkbox"] {
 .language-picker legend,
 .destination-picker legend {
   font-family: inherit;
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 16px;
+  font-weight: 700;
   padding: 0;
   margin-bottom: 13px;
 }
@@ -1179,12 +1185,13 @@ input[type="checkbox"] {
   border-radius: 13px;
   min-height: 60px;
   font: inherit;
-  font-size: 15px;
-  font-weight: 550;
+  font-size: 16px;
+  font-weight: 600;
   color: #344637;
   padding: 15px 17px;
   cursor: pointer;
-}
+
+  line-height: 1.35;}
 .language-tile[aria-pressed="true"] {
   border: 2px solid var(--accent);
   padding: 14px 16px;
@@ -1197,17 +1204,18 @@ input[type="checkbox"] {
   border-radius: 50%;
 }
 .review-scene .btn {
-  min-height: 46px;
+  min-height: 48px;
   border-radius: 11px;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   padding: 13px 17px;
-}
+
+  line-height: 1.35;}
 .review-scene .btn.primary-action {
   background: var(--accent);
   color: var(--accent-ink);
   border: 1px solid var(--accent);
-  min-height: 54px;
+  min-height: 56px;
   gap: 10px;
 }
 .review-scene .btn:disabled {
@@ -1216,30 +1224,31 @@ input[type="checkbox"] {
 }
 .review-scene .btn.text {
   min-height: 44px;
-  font-size: 12px;
+  font-size: 14px;
   padding: 10px 6px;
   background: transparent;
   box-shadow: none;
-  color: #51684f;
+  color: #3d6045;
 }
 .quiet-note {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 13px;
   margin: 19px 0 0;
   color: #6a7568;
-}
+
+  line-height: 1.5;}
 .step-heading {
   padding-bottom: 22px;
   border-bottom: 1px solid #e9ece3;
 }
 .small-kicker {
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 650;
-  letter-spacing: 1.6px;
+  letter-spacing: 1.1px;
   color: #77866d;
   margin-bottom: 11px;
 }
@@ -1254,38 +1263,44 @@ input[type="checkbox"] {
 }
 .review-panel .question-group legend,
 .review-panel .question-group h3 {
-  font-size: 15px;
-  font-weight: 650;
-}
+  font-size: 18px;
+  font-weight: 700;
+
+  line-height: 1.4;}
 .review-panel .question-group p {
   margin: 7px 0 13px;
-  font-size: 12px;
-}
+  font-size: 14px;
+
+  line-height: 1.55;
+  color: #5d6a60;}
 .review-panel .aspect-row {
   padding: 12px 0;
   margin: 0;
   border-bottom: 1px solid #eef0e9;
 }
 .review-panel .aspect-row legend {
-  font-size: 12px;
+  font-size: 15px;
   padding-top: 5px;
   margin-bottom: 8px;
-  color: #4d5c4c;
-}
+  color: #37483e;
+
+  font-weight: 650;}
 .review-panel .aspect-row .answer-choices {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
 }
 .review-panel .answer-choice {
   border-radius: 10px;
-  font-size: 12px;
-  min-height: 43px;
-  padding: 10px 13px;
+  font-size: 14px;
+  min-height: 48px;
+  padding: 11px 12px;
   border-color: #dfe4d8;
   color: #41503e;
   background: #fff;
   overflow-wrap: anywhere;
-}
+
+  line-height: 1.35;
+  font-weight: 550;}
 .review-panel .answer-choice[aria-pressed="true"] {
   color: var(--accent-ink);
   background: var(--accent);
@@ -1311,8 +1326,9 @@ input[type="checkbox"] {
   background: #f8faf4;
 }
 .review-panel .visit-details summary {
-  font-size: 12px;
-}
+  font-size: 15px;
+
+  font-weight: 650;}
 .review-panel .visit-details .form-grid {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
@@ -1321,8 +1337,10 @@ input[type="checkbox"] {
   margin-bottom: 0;
 }
 .review-panel label {
-  font-size: 13px;
-}
+  font-size: 15px;
+
+  font-weight: 650;
+  line-height: 1.45;}
 .review-panel input:not([type="checkbox"]):not([type="file"]),
 .review-panel select,
 .review-panel textarea {
@@ -1340,8 +1358,8 @@ input[type="checkbox"] {
   resize: vertical;
 }
 .review-panel textarea::placeholder {
-  color: #8a9386;
-  font-size: 14px;
+  color: #737f77;
+  font-size: 15px;
 }
 .input-footnote {
   display: flex;
@@ -1351,19 +1369,19 @@ input[type="checkbox"] {
   margin-top: 8px;
 }
 .input-footnote p {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.6;
-  color: #74806e;
+  color: #5d6d63;
 }
 .input-footnote > span {
   white-space: nowrap;
-  font-size: 10px;
-  color: #7c8776;
+  font-size: 12px;
+  color: #5d6d63;
   padding-top: 2px;
 }
 .sample-link {
   font: inherit;
-  font-size: 11px;
+  font-size: 13px;
   color: #527047;
   border: 0;
   padding: 8px 0;
@@ -1383,14 +1401,14 @@ input[type="checkbox"] {
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
 }
 .photo-disclosure summary small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 400;
-  color: #75806c;
+  color: #586a5c;
   margin-top: 3px;
 }
 .photo-count {
@@ -1419,8 +1437,8 @@ input[type="checkbox"] {
   outline-offset: 2px;
 }
 .photo-content > p {
-  font-size: 11px;
-  color: #78836f;
+  font-size: 13px;
+  color: #596a5f;
   line-height: 1.6;
   margin: 9px 0;
 }
@@ -1463,14 +1481,15 @@ input[type="checkbox"] {
   border: 1px solid #dfe5d8;
   background: #fff;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   min-height: 63px;
   border-radius: 12px;
   text-align: left;
   color: #34452f;
   cursor: pointer;
-}
+
+  line-height: 1.4;}
 .destination-tiles button[aria-pressed="true"] {
   outline: 1px solid var(--accent);
   border-color: var(--accent);
@@ -1500,8 +1519,8 @@ input[type="checkbox"] {
   align-items: flex-start;
   gap: 10px;
   font-weight: 400;
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.55;
   margin: 0;
 }
 .review-panel input[type="checkbox"] {
@@ -1515,7 +1534,7 @@ input[type="checkbox"] {
   padding: 4px 0 16px;
 }
 .empty-guidance {
-  font-size: 11px;
+  font-size: 13px;
   color: #6c7964;
   margin: 0 0 12px;
 }
@@ -1539,7 +1558,7 @@ input[type="checkbox"] {
 .draft-meta span {
   background: #f1f5e9;
   color: #5b7051;
-  font-size: 10px;
+  font-size: 12px;
   border-radius: 6px;
   padding: 6px 9px;
 }
@@ -1550,7 +1569,7 @@ input[type="checkbox"] {
 }
 .review-result .field > p,
 .draft-photo-reminder > p {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.6;
   color: #73806b;
   margin-top: 9px;
@@ -1575,9 +1594,9 @@ input[type="checkbox"] {
   flex: 1;
 }
 .handoff-help {
-  font-size: 12px;
-  color: #73806c;
-  line-height: 1.75;
+  font-size: 14px;
+  color: #596b60;
+  line-height: 1.6;
   margin: 15px 0 24px;
 }
 .draft-tools {
@@ -1601,17 +1620,17 @@ input[type="checkbox"] {
   color: #44603b;
 }
 .generation-status strong {
-  font-size: 13px;
+  font-size: 15px;
 }
 .generation-status p {
-  font-size: 11px;
+  font-size: 13px;
   margin-top: 3px;
 }
 .review-footer {
   text-align: center;
   padding: 23px 5px 0;
-  font-size: 10px;
-  color: #788270;
+  font-size: 12px;
+  color: #5c6a60;
 }
 .review-footer p {
   display: flex;
@@ -1643,8 +1662,8 @@ input[type="checkbox"] {
 }
 .review-scene .notice {
   border-radius: 12px;
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.6;
 }
 .logo-settings {
   margin-top: 30px;
@@ -1720,18 +1739,18 @@ input[type="checkbox"] {
     font-size: 20px;
   }
   .shop-overline {
-    font-size: 8px;
+    font-size: 10px;
     letter-spacing: 1.2px;
   }
   .shop-address {
-    font-size: 10px;
+    font-size: 12px;
   }
   .review-progress {
     padding: 0 6px;
     gap: 4px;
   }
   .review-progress li {
-    font-size: 9px;
+    font-size: 11px;
     gap: 5px;
   }
   .review-progress li > span {
@@ -1739,18 +1758,19 @@ input[type="checkbox"] {
     height: 21px;
   }
   .review-panel h1 {
-    font-size: 34px;
-    letter-spacing: -0.9px;
+    font-size: 31px;
+    letter-spacing: -0.55px;
   }
   .step-heading h1 {
-    font-size: 32px;
-  }
+    font-size: 30px;
+  
+  line-height: 1.22;}
   .review-panel .panel-lead {
-    font-size: 13px;
+    font-size: 15px;
   }
   .language-tile {
-    font-size: 13px;
-    min-height: 57px;
+    font-size: 15px;
+    min-height: 58px;
     padding: 13px;
   }
   .language-tile[aria-pressed="true"] {
@@ -1765,17 +1785,19 @@ input[type="checkbox"] {
     margin-top: 25px;
   }
   .review-panel .answer-choice {
-    font-size: 11px;
-    padding: 10px 8px;
-  }
+    font-size: 13px;
+    padding: 11px 8px;
+  
+  min-height: 48px;}
   .destination-tiles {
     gap: 8px;
   }
   .destination-tiles button {
     gap: 7px;
-    padding: 11px 8px;
-    font-size: 11px;
-  }
+    padding: 12px 8px;
+    font-size: 13px;
+  
+  min-height: 56px;}
   .destination-icon {
     width: 27px;
     height: 30px;
@@ -1790,7 +1812,7 @@ input[type="checkbox"] {
     flex-direction: column;
   }
   .draft-tools .btn.text {
-    font-size: 11px;
+    font-size: 13px;
   }
   .review-result textarea {
     min-height: 260px;
@@ -1809,4 +1831,12 @@ input[type="checkbox"] {
   .review-scene .spin {
     animation-duration: 3s;
   }
+}
+
+/* CJK headings retain their natural character spacing. */
+:lang(zh-CN) .review-panel h1,
+:lang(zh-TW) .review-panel h1,
+:lang(zh-CN) .shop-heading h2,
+:lang(zh-TW) .shop-heading h2 {
+  letter-spacing: normal;
 }
