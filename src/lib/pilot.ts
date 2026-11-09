@@ -47,6 +47,13 @@ export function safeStartupFailure(stage: string, error: unknown) {
   return `Pilot check failed at ${safeStage}. Check the database, account settings and server configuration. No credentials are printed.`;
 }
 
+/** The Netlify trial NEVER reads the shared DATABASE_URL variable. */
+export function databaseConnectionUrl(env: Record<string, string | undefined>) {
+  return env.HOSTING_PROVIDER === "netlify"
+    ? env.FIELDNOTE_TRIAL_DATABASE_URL
+    : env.DATABASE_URL;
+}
+
 export function pilotProblems(env: Record<string, string | undefined>) {
   const errors: string[] = [];
   if (env.APP_MODE !== "pilot") errors.push("APP_MODE must be pilot.");
@@ -55,15 +62,21 @@ export function pilotProblems(env: Record<string, string | undefined>) {
       "Confirm the independent review database with REVIEW_DATABASE_APPROVED=yes.",
     );
   try {
-    const db = new URL(env.DATABASE_URL || "");
+    const db = new URL(databaseConnectionUrl(env) || "");
     if (
       !["postgres:", "postgresql:"].includes(db.protocol) ||
       !db.hostname.endsWith(".neon.tech") ||
-      !["require", "verify-full"].includes(db.searchParams.get("sslmode") || "")
+      !["require", "verify-full"].includes(db.searchParams.get("sslmode") || "") ||
+      (env.HOSTING_PROVIDER === "netlify" &&
+        (db.pathname !== "/fieldnote_trial" ||
+         db.searchParams.get("sslmode") !== "verify-full" ||
+         !db.hostname.includes("-pooler.")))
     )
       throw new Error();
   } catch {
-    errors.push("Use the separate Neon connection string with TLS enabled.");
+    errors.push(env.HOSTING_PROVIDER === "netlify"
+      ? "FIELDNOTE_TRIAL_DATABASE_URL must be the pooled Neon trial connection for /fieldnote_trial with sslmode=verify-full; DATABASE_URL is ignored on Netlify."
+      : "Use the separate Neon connection string with TLS enabled.");
   }
   try {
     const url = new URL(env.APP_ORIGIN || "");

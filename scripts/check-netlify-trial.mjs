@@ -30,14 +30,27 @@ export function netlifyTrialProblems(env) {
       errors.push("Netlify URL is malformed.");
     }
   }
-  try {
-    const db = new URL(env.DATABASE_URL || "");
-    if (
-      !["postgres:", "postgresql:"].includes(db.protocol) ||
-      !db.hostname.endsWith(".neon.tech") ||
-      db.searchParams.get("sslmode") !== "verify-full"
-    ) throw Error("invalid database connection");
-  } catch { errors.push("Use the isolated Neon trial database URL with sslmode=verify-full."); }
+  // The legacy Netlify Neon extension may provide its own database variables.
+  // Ignore generic DATABASE_URL and require this project-specific secret.
+  if (!env.FIELDNOTE_TRIAL_DATABASE_URL) {
+    errors.push("Missing FIELDNOTE_TRIAL_DATABASE_URL. Set it in Netlify for Builds and Functions; generic DATABASE_URL is ignored.");
+  } else {
+    try {
+      const db = new URL(env.FIELDNOTE_TRIAL_DATABASE_URL);
+      if (!["postgres:", "postgresql:"].includes(db.protocol))
+        errors.push("FIELDNOTE_TRIAL_DATABASE_URL must begin with postgresql://.");
+      if (!db.hostname.endsWith(".neon.tech"))
+        errors.push("FIELDNOTE_TRIAL_DATABASE_URL host must end in .neon.tech.");
+      if (!db.hostname.includes("-pooler."))
+        errors.push("FIELDNOTE_TRIAL_DATABASE_URL must use the Neon pooled host (-pooler).");
+      if (db.pathname !== "/fieldnote_trial")
+        errors.push("FIELDNOTE_TRIAL_DATABASE_URL must select the fieldnote_trial database.");
+      if (db.searchParams.get("sslmode") !== "verify-full")
+        errors.push("FIELDNOTE_TRIAL_DATABASE_URL must include sslmode=verify-full.");
+    } catch {
+      errors.push("FIELDNOTE_TRIAL_DATABASE_URL must be a valid PostgreSQL connection URL.");
+    }
+  }
   if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32 ||
       /example|replace/i.test(env.BETTER_AUTH_SECRET))
     errors.push("Set a new 32+ character BETTER_AUTH_SECRET for Netlify.");

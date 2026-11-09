@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { pilotProblems } from "../src/lib/pilot";
+import { pilotProblems, databaseConnectionUrl } from "../src/lib/pilot";
 
 const config = {
   HOSTING_PROVIDER: "netlify",
@@ -9,7 +9,8 @@ const config = {
   REVIEW_DATABASE_APPROVED: "yes",
   APP_ORIGIN: "https://fieldnote-netlify-trial.netlify.app",
   URL: "https://fieldnote-netlify-trial.netlify.app",
-  DATABASE_URL: "postgresql://test:fake@ep-trial-pooler.us-east-2.aws.neon.tech/fieldnote_trial?sslmode=verify-full",
+  FIELDNOTE_TRIAL_DATABASE_URL: "postgresql://test:fake@ep-trial-pooler.us-east-2.aws.neon.tech/fieldnote_trial?sslmode=verify-full",
+  DATABASE_URL: "postgresql://another:fake@ep-production-pooler.us-east-2.aws.neon.tech/fieldnote?sslmode=require",
   NETLIFY_TRIAL_MARKER: "fieldnote-netlify-trial-morning-cloud-02172364",
   BETTER_AUTH_SECRET: "nonproduction-test-auth-secret-of-more-than-32-chars",
   MAINTENANCE_SECRET: "nonproduction-test-maintenance-secret-of-more-than-32-chars",
@@ -27,7 +28,22 @@ test("Netlify preflight accepts only a dedicated site with a separate database m
   });
   assert.equal(good.status, 0, good.stderr);
   assert.deepEqual(pilotProblems(env), []);
+  assert.equal(databaseConnectionUrl(env), env.FIELDNOTE_TRIAL_DATABASE_URL);
+  assert.notEqual(databaseConnectionUrl(env), env.DATABASE_URL);
 
+  const withoutDedicatedUrl = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: "" };
+  const missing = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], { encoding: "utf8", env: withoutDedicatedUrl });
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /Missing FIELDNOTE_TRIAL_DATABASE_URL/);
+  assert.ok(pilotProblems(withoutDedicatedUrl).length);
+  const wrongTls = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: env.FIELDNOTE_TRIAL_DATABASE_URL!.replace("sslmode=verify-full", "sslmode=require") };
+  const tls = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], { encoding: "utf8", env: wrongTls });
+  assert.notEqual(tls.status, 0);
+  assert.match(tls.stderr, /sslmode=verify-full/);
+  const wrongDb = { ...env, FIELDNOTE_TRIAL_DATABASE_URL: env.FIELDNOTE_TRIAL_DATABASE_URL!.replace("/fieldnote_trial?", "/fieldnote?") };
+  const db = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], { encoding: "utf8", env: wrongDb });
+  assert.notEqual(db.status, 0);
+  assert.match(db.stderr, /fieldnote_trial database/);
   const noMarker = { ...env, NETLIFY_TRIAL_MARKER: "" };
   const bad = spawnSync(process.execPath, ["scripts/check-netlify-trial.mjs"], {
     encoding: "utf8", env: noMarker,
