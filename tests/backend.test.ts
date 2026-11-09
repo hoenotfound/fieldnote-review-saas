@@ -35,6 +35,8 @@ before(async () => {
   process.env.APP_MODE = "local";
   process.env.AI_MODE = "demo";
   process.env.AI_DAILY_ATTEMPT_LIMIT = "100";
+  // Legacy interaction tests are not intended to exercise the new business cap.
+  process.env.AI_BUSINESS_DAILY_ATTEMPT_LIMIT = "100";
   db = await getDb();
   const a = await makeAuth(true);
   const r = await a.api.signUpEmail({
