@@ -193,29 +193,6 @@ export function CustomerQuestionnaire({
           )}
         </div>
       </fieldset>
-      <details className="visit-details">
-        <summary>{q.details}</summary>
-        <div className="form-grid">
-          <div className="field">
-            <label htmlFor="visit-type">{q.visit}</label>
-            <select
-              id="visit-type"
-              disabled={busy}
-              value={answers.visit}
-              onChange={(e) =>
-                onChange({
-                  ...answers,
-                  visit: e.target.value as Answers["visit"],
-                })
-              }
-            >
-              <option value="">{q.skip}</option>
-              <option value="first">{q.first}</option>
-              <option value="returning">{q.returning}</option>
-            </select>
-          </div>
-        </div>
-      </details>
     </section>
   );
 }
