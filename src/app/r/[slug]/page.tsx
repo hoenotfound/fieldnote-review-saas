@@ -9,5 +9,15 @@ export default async function ReviewPage({
 }) {
   const l = await publicLocation((await params).slug);
   if (!l) notFound();
-  return <ReviewForm location={l} local={process.env.APP_MODE === "local"} />;
+  return (
+    <ReviewForm
+      location={l}
+      local={process.env.APP_MODE === "local"}
+      turnstileSiteKey={
+        process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY
+          ? process.env.TURNSTILE_SITE_KEY
+          : ""
+      }
+    />
+  );
 }
