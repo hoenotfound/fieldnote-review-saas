@@ -78,7 +78,7 @@ export function ReviewForm({
       const raw = sessionStorage.getItem(storageKey);
       if (raw) {
         const old = JSON.parse(raw);
-        if (Date.now() - old.saved < 7200000) {
+        if (typeof old.saved === "number" && old.saved <= Date.now() && Date.now() - old.saved < 7200000) {
           setExperience(
             typeof old.experience === "string"
               ? old.experience.slice(0, 2000)
@@ -111,9 +111,15 @@ export function ReviewForm({
             setDraft(old.draft);
             setStage("review");
           }
+        } else {
+          sessionStorage.removeItem(storageKey);
         }
       }
-    } catch {}
+    } catch {
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {}
+    }
     restored.current = true;
     return () => photoRef.current.forEach((p) => URL.revokeObjectURL(p.url));
   }, [storageKey, configVersion]);
