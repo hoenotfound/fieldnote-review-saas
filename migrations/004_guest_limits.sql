@@ -1,5 +1,6 @@
 -- Additive only. Existing customer sessions and generation records remain intact.
 ALTER TABLE guest_session ADD COLUMN IF NOT EXISTS network_key text;
+ALTER TABLE guest_session ADD COLUMN IF NOT EXISTS client_key text;
 
 CREATE TABLE IF NOT EXISTS guest_rate_counter (
   scope text NOT NULL,
