@@ -4,15 +4,14 @@ import { sql } from "drizzle-orm";
 import { rows, getDb, type DB } from "@/lib/db";
 import { limitGuestIssuance, networkKey, browserKey } from "@/lib/rate-limits";
 import { publicLocation, finishGuest } from "@/lib/reviews";
-import { AppError, errorResponse, hash, requireOrigin } from "@/lib/security";
+import { AppError, errorResponse, hash, requireOrigin, readLimitedJson } from "@/lib/security";
 import { origin } from "@/lib/auth";
 export async function POST(req: Request) {
   try {
     requireOrigin(req);
-    const raw = await req.text();
-    if (raw.length > 1000) throw new AppError("INVALID_INPUT", 413);
-    const body = JSON.parse(raw);
-    if (!body || typeof body.slug !== "string" || body.slug.length > 100)
+    const body = await readLimitedJson(req, 1000) as Record<string, unknown> | null;
+    if (!body || typeof body !== "object" || Array.isArray(body) ||
+        typeof body.slug !== "string" || body.slug.length > 100)
       throw new AppError("INVALID_INPUT");
     const loc = await publicLocation(body.slug);
     if (!loc) throw new AppError("NOT_FOUND", 404);
