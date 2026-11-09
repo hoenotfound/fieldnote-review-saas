@@ -33,3 +33,19 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
+
+  verify-retention-secret:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Confirm cleanup secret exists without displaying its value
+        env:
+          SECRET_CONFIGURED: ${{ secrets.FIELDNOTE_MAINTENANCE_TOKEN != '' }}
+        run: |
+          if [ "$SECRET_CONFIGURED" != "true" ]; then
+            echo "::error::FIELDNOTE_MAINTENANCE_TOKEN is not configured."
+            exit 1
+          fi
+          echo "Required GitHub Actions secret exists."
