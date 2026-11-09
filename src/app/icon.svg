@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="HD Review icon">
+  <rect x="3" y="3" width="58" height="58" rx="17" fill="#172e45"/>
+  <circle cx="49" cy="15" r="5" fill="#40d1c4"/>
+  <text x="13" y="41" fill="white" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="25" letter-spacing="-1.5">HD</text>
+</svg>

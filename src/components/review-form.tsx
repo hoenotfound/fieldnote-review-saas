@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { customerCopy } from "@/lib/customer-copy";
 import { BusinessMark, accentText } from "./business-mark";
+import { HDReviewWordmark } from "./hd-review-wordmark";
 import { CustomerQuestionnaire } from "./customer-questionnaire";
 import { AiHumanChallenge } from "./ai-human-challenge";
 import {
@@ -17,7 +18,7 @@ import {
   ArrowRight,
   ImagePlus,
   ShieldCheck,
-  Feather,
+  MessageSquareQuote,
   Check,
   Copy,
   LoaderCircle,
@@ -443,7 +444,7 @@ export function ReviewForm({
       <div className="review-shell">
         <header className="review-masthead">
           <span className="mini-wordmark">
-            <Feather size={18} /> fieldnote<span>.</span>
+            <HDReviewWordmark compact showCompany={false} />
           </span>
           {stage !== "welcome" && (
             <div className="language-switch">
@@ -506,7 +507,7 @@ export function ReviewForm({
           {stage === "welcome" && (
             <section className="welcome-step">
               <div className="welcome-symbol" aria-hidden="true">
-                <Feather size={30} />
+                <MessageSquareQuote size={30} />
               </div>
               <h1 tabIndex={-1} ref={headingRef}>
                 {c.welcome}
@@ -977,7 +978,18 @@ export function ReviewForm({
             <a href="/privacy">{t.privacyLink}</a>
           </p>
           <span>
-            {c.powered} <strong>fieldnote.</strong>
+            {c.powered} <strong>HD Review</strong>
+            <span className="hd-review-attribution">
+              {" · "}
+              <img
+                src="/da-smarketing-logo.svg"
+                alt=""
+                width={16}
+                height={16}
+                className="hd-review-company-mark"
+              />
+              {" "}by DA Smarketing Solutions
+            </span>
           </span>
         </footer>
       </div>

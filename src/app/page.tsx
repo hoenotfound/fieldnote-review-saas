@@ -23,15 +23,16 @@ export default async function Home() {
       <main className="page">
         <section className="hero">
           <div>
-            <div className="eyebrow">A LITTLE HELP WITH THE WORDS</div>
+            <div className="eyebrow">AI-ASSISTED CUSTOMER REVIEWS</div>
             <h1>
-              Real experiences.
+              Every experience
               <br />
-              Thoughtfully written.
+              deserves a voice.
             </h1>
             <p>
-              A simple way to turn your visit into a review that sounds like
-              you. Write, refine, and share when you’re ready.
+              HD Review helps customers turn real visits into clear, editable
+              review drafts for Google Reviews and Xiaohongshu. Their words,
+              their choice to share.
             </p>
             <div className="actions" style={{ marginTop: 28 }}>
               {isLocal ? (
@@ -62,8 +63,8 @@ export default async function Home() {
               </p>
               <div className="rule" />
               <small>
-                <Feather size={14} style={{ verticalAlign: "middle" }} /> YOUR
-                EXPERIENCE COMES FIRST
+                <Feather size={14} style={{ verticalAlign: "middle" }} /> REAL
+                EXPERIENCES COME FIRST
               </small>
             </div>
           </div>
