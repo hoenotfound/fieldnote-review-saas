@@ -29,6 +29,8 @@ test("customer styles are consolidated and loaded after base styles", () => {
   assert.match(css, /\.review-scene\s*\{/);
   assert.doesNotMatch(globals, /\.review-scene\s*\{/);
   assert.doesNotMatch(globals, /HD Review customer journey refinement/);
+  assert.match(globals, /\.business-mark\s*\{/);
+  assert.match(css, /\.review-scene \.business-mark\s*\{/);
   const desktopRules = css.slice(0, css.indexOf("@media (max-width: 520px)"));
   assert.equal((desktopRules.match(/\.review-scene\s*\{/g) || []).length, 1);
 });
