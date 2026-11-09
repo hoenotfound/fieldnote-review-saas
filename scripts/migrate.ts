@@ -30,6 +30,8 @@ async function main() {
       "audit_event",
       "review_app_meta",
       "business_logo",
+      "guest_rate_counter",
+      "business_daily_budget",
     ];
     if (tables.rows.some((r) => !allowed.includes(r.table_name)))
       throw new Error("Refusing database containing unrelated tables.");
