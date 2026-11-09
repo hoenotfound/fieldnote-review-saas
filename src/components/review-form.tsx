@@ -119,7 +119,7 @@ export function ReviewForm({
   }, [storageKey, configVersion]);
   useEffect(() => {
     try {
-      if (restored.current)
+      if (restored.current && (stage === "visit" || stage === "review"))
         sessionStorage.setItem(
           storageKey,
           JSON.stringify({
@@ -256,9 +256,29 @@ export function ReviewForm({
       setError(t.copyFailed);
     }
   }
+  function clearLocal() {
+    setExperience("");
+    setAnswers(emptyAnswers());
+    setDraft(null);
+    setConsent(false);
+    setConfirmed(false);
+    setError("");
+    setMessage("");
+    photoRef.current.forEach((p) => URL.revokeObjectURL(p.url));
+    photoRef.current = [];
+    setPhotos([]);
+    pendingKey.current = null;
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch {}
+  }
   async function finish() {
+    if (finishing) return;
     setBusy(true);
     setFinishing(true);
+    // Erase visible and browser-stored content before any network request.
+    clearLocal();
+    setStage("complete");
     try {
       const res = await fetch("/api/guest", {
         method: "POST",
@@ -266,28 +286,47 @@ export function ReviewForm({
         body: JSON.stringify({ slug: location.slug, finish: true }),
       });
       if (!res.ok) throw new Error();
-      setExperience("");
-      setAnswers(emptyAnswers());
-      setDraft(null);
-      setConsent(false);
-      setConfirmed(false);
-      setError("");
       setMessage(t.finished);
-      photos.forEach((p) => URL.revokeObjectURL(p.url));
-      setPhotos([]);
-      photoRef.current = [];
-      pendingKey.current = null;
-      try {
-        sessionStorage.removeItem(storageKey);
-      } catch {}
-      setStage("complete");
     } catch {
-      setError(t.retry);
+      // Local data is already gone. The session expires server-side regardless.
+      setError(t.serverClearUnconfirmed);
     } finally {
       setBusy(false);
       setFinishing(false);
     }
   }
+  useEffect(() => {
+    if (
+      new URLSearchParams(window.location.search).get("kiosk") !== "1" ||
+      (stage !== "visit" && stage !== "review")
+    ) return;
+    let lastActivity = Date.now();
+    const activity = () => { lastActivity = Date.now(); };
+    const check = () => {
+      if (Date.now() - lastActivity < 5 * 60 * 1000) return;
+      clearLocal();
+      setLocale("en");
+      setOutput("en");
+      setStage("welcome");
+      // Best effort: server content is also removed by expiry and retention cleanup.
+      void fetch("/api/guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: location.slug, finish: true }),
+      }).catch(() => {});
+    };
+    for (const event of ["pointerdown", "keydown", "touchstart", "input"])
+      window.addEventListener(event, activity);
+    document.addEventListener("visibilitychange", check);
+    const interval = window.setInterval(check, 15000);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", check);
+      for (const event of ["pointerdown", "keydown", "touchstart", "input"])
+        window.removeEventListener(event, activity);
+    };
+  }, [stage, storageKey, location.slug]);
+
   function addPhotos(files: FileList | null) {
     if (!files) return;
     const list = Array.from(files);
@@ -838,7 +877,8 @@ export function ReviewForm({
         <footer className="review-footer">
           <p>
             <ShieldCheck size={14} />
-            {c.welcomePrivacy}
+            {c.welcomePrivacy}{" "}
+            <a href="/privacy">{t.privacyLink}</a>
           </p>
           <span>
             {c.powered} <strong>fieldnote.</strong>
