@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { AppError } from "./security";
 import { rows, type DB } from "./db";
 
-/** All counters are atomic PostgreSQL upserts; no process-local limit state. */
+/** Atomic PostgreSQL counters. No per-process limit state and no raw addresses. */
 export function boundedLimit(value: string | undefined, fallback: number, max: number) {
   const parsed = Number(value);
   return value && Number.isInteger(parsed) && parsed > 0 && parsed <= max
@@ -12,26 +12,42 @@ export function boundedLimit(value: string | undefined, fallback: number, max: n
     : fallback;
 }
 
-/**
- * Render appends the immediate peer to X-Forwarded-For. The rightmost address
- * is used, never the user-controlled leftmost address. Outside Render, an
- * unknown shared key is safer than trusting an unauthenticated header.
- * Network keys are salted digests scoped to a business, never raw addresses.
- */
-export function networkKey(request: Request, businessId: string) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const candidate =
-    (process.env.RENDER === "true" || process.env.APP_MODE === "local") &&
-    forwarded
-      ? forwarded.split(",").at(-1)?.trim()
-      : undefined;
-  const identity = candidate && isIP(candidate) ? candidate : "unknown";
+function scopedHash(scope: string, businessId: string, identity: string) {
+  if (!process.env.BETTER_AUTH_SECRET && process.env.APP_MODE !== "local")
+    throw new Error("BETTER_AUTH_SECRET is required for visitor rate limits");
   return createHmac("sha256", process.env.BETTER_AUTH_SECRET || "local-test-only")
-    .update("fieldnote-network-v1:")
+    .update(`fieldnote-${scope}-v2:`)
     .update(businessId)
     .update(":")
     .update(identity)
     .digest("hex");
+}
+
+/**
+ * Render fronts applications with Cloudflare. Cloudflare provides a canonical
+ * CF-Connecting-IP; an arbitrary XFF chain is not a trusted client identity.
+ * The production fallback intentionally shares one bucket rather than
+ * trusting an attacker-supplied header. Validate the real proxy behavior
+ * on the hosted service before public launch.
+ */
+export function networkKey(request: Request, businessId: string) {
+  let identity = "unverified-network";
+  if (process.env.RENDER === "true") {
+    const ip = request.headers.get("cf-connecting-ip")?.trim();
+    if (request.headers.has("cf-ray") && ip && isIP(ip))
+      identity = ip;
+  } else if (process.env.APP_MODE === "local") {
+    // Local-only proxy simulation for tests; never used in hosted production.
+    const ip = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim();
+    if (ip && isIP(ip)) identity = ip;
+  }
+  return scopedHash("network", businessId, identity);
+}
+
+/** Persistent, random, server-issued browser cookie. Clearing it can still
+ * change identity, so it only complements the network controls. */
+export function browserKey(cookieToken: string, businessId: string) {
+  return scopedHash("browser", businessId, cookieToken);
 }
 
 export async function spendWindow(
@@ -42,7 +58,7 @@ export async function spendWindow(
   limit: number,
   errorCode: string,
 ) {
-  const inserted = await rows(
+  const updated = await rows(
     sql`insert into guest_rate_counter(scope,key_hash,window_key,attempts)
         values (${scope},${key},floor(extract(epoch from now())/${seconds})::bigint,1)
         on conflict(scope,key_hash,window_key)
@@ -51,7 +67,7 @@ export async function spendWindow(
         returning attempts`,
     db,
   );
-  if (!inserted.length) throw new AppError(errorCode, 429);
+  if (!updated.length) throw new AppError(errorCode, 429);
 }
 
 export async function limitGuestIssuance(
@@ -81,9 +97,15 @@ export async function limitGeneration(
   businessId: string,
   key: string | null,
   globalCap: number,
+  clientKey: string | null = null,
+  verifiedHuman = false,
 ) {
-  // Sessions issued before the additive migration have no network key.
-  // They expire in two hours, but still consume the per-business daily cap.
+  // Existing sessions from before migration 004 have no network/browser key,
+  // but still consume business and global caps.
+  const defaultBusinessCap = Math.max(1, Math.min(20, Math.floor(globalCap * 0.6)));
+  const businessCap = boundedLimit(
+    process.env.AI_BUSINESS_DAILY_ATTEMPT_LIMIT, defaultBusinessCap, 10000,
+  );
   if (key) {
     await spendWindow(
       db, "generation-hour", key, 3600,
@@ -96,13 +118,33 @@ export async function limitGeneration(
       "AI_RATE_LIMIT",
     );
   }
-  // Keep a single business from consuming all of a small shared global cap.
-  const defaultCap = Math.max(1, Math.min(20, Math.floor(globalCap * 0.6)));
-  // Explicit operator overrides may exceed the global cap; the global
-  // counter remains the hard cross-business safety boundary.
-  const businessCap = boundedLimit(
-    process.env.AI_BUSINESS_DAILY_ATTEMPT_LIMIT, defaultCap, 10000,
+  // Without verified challenge, one network can consume only a portion of
+  // business capacity. After the threshold, customers can pass Turnstile.
+  // With no configured verifier we fail closed and preserve manual writing.
+  const challengeAvailable = Boolean(
+    process.env.TURNSTILE_SECRET_KEY && process.env.TURNSTILE_SITE_KEY,
   );
+  const challengeError = challengeAvailable
+    ? "AI_CHALLENGE_REQUIRED"
+    : "AI_RATE_LIMIT";
+  if (!verifiedHuman && key) {
+    await spendWindow(
+      db, "generation-unverified-day", key, 86400,
+      boundedLimit(
+        process.env.AI_UNVERIFIED_NETWORK_DAILY_LIMIT,
+        Math.max(1, Math.min(3, Math.floor(businessCap / 2))),
+        100,
+      ),
+      challengeError,
+    );
+  }
+  if (!verifiedHuman && clientKey) {
+    await spendWindow(
+      db, "generation-browser-day", clientKey, 86400,
+      boundedLimit(process.env.AI_UNVERIFIED_BROWSER_DAILY_LIMIT, 2, 20),
+      challengeError,
+    );
+  }
   const spent = await rows(
     sql`insert into business_daily_budget(business_id,day,attempts)
         values(${businessId},(now() at time zone 'UTC')::date,1)
