@@ -1,8 +1,8 @@
 import { Header, Footer } from "@/components/chrome";
 
 export const metadata = {
-  title: "Fieldnote privacy information",
-  description: "How Fieldnote handles customer review drafts and photo previews.",
+  title: "HD Review privacy information",
+  description: "How HD Review handles customer review drafts and photo previews.",
 };
 
 export default function Privacy() {
@@ -13,7 +13,7 @@ export default function Privacy() {
         <section className="card" style={{ maxWidth: 820, margin: "36px auto" }}>
           <h1>Privacy information</h1>
           <p>
-            Fieldnote helps you write a review about your own experience.
+            HD Review, operated by DA Smarketing Solutions, helps you write a review about your own experience.
             It does not post reviews for you, and you do not need to provide
             your name, phone number or Google/Xiaohongshu password.
           </p>
@@ -22,7 +22,7 @@ export default function Privacy() {
             Your text, selected answers and draft can be restored in this
             browser tab for up to two hours. Using Finish &amp; clear erases
             them from this tab immediately, even if the network is unavailable.
-            Photo previews use local files and are not uploaded to Fieldnote.
+            Photo previews use local files and are not uploaded to HD Review.
             For shared kiosks, the optional kiosk setting does not restore
             earlier drafts after reloading. It also resets an inactive page
             after five minutes.
@@ -47,9 +47,9 @@ export default function Privacy() {
             device signals under its own privacy terms.
             Manual writing remains available without completing it.
           </p>
-          <h2>What the Fieldnote server retains</h2>
+          <h2>What the HD Review server retains</h2>
           <p>
-            Review input is not stored as plaintext in the Fieldnote database.
+            Review input is not stored as plaintext in the HD Review database.
             The server records a hash of the input, generation timing, outcome,
             language, location and token counts. Successful draft output may
             be cached encrypted for the two-hour customer session. Finish
@@ -71,7 +71,7 @@ export default function Privacy() {
             Nothing is posted automatically. You choose whether to copy your
             draft or open the review platform. For a question about a
             particular visit or a deletion request, start with the business
-            that provided your QR code so it can contact the Fieldnote
+            that provided your QR code so it can contact the HD Review
             operator. A direct operator contact and confirmed backup
             retention policy are being finalized for the pilot.
           </p>

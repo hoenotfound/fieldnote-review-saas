@@ -1,17 +1,15 @@
 import Link from "next/link";
-import { Feather, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import { HDReviewWordmark } from "./hd-review-wordmark";
 export function Header() {
   return (
     <header className="topbar">
-      <Link href="/" className="wordmark">
-        <Feather strokeWidth={1.5} />
-        fieldnote<span style={{ color: "#8fa279" }}>.</span>
+      <Link href="/" className="wordmark" aria-label="HD Review home">
+        <HDReviewWordmark />
       </Link>
-      <nav className="topnav">
+      <nav className="topnav" aria-label="Main navigation">
         <span className="pill">
-          {process.env.APP_MODE === "local"
-            ? "LOCAL PROTOTYPE"
-            : "BUSINESS WORKSPACE"}
+          {process.env.APP_MODE === "local" ? "LOCAL PROTOTYPE" : "BUSINESS WORKSPACE"}
         </span>
         <Link href="/dashboard">
           Business dashboard{" "}
@@ -24,10 +22,10 @@ export function Header() {
 export function Footer() {
   return (
     <footer className="footer">
-      <span>fieldnote. &nbsp; Real experiences. Your words.</span>
+      <span>© {new Date().getFullYear()} DA Smarketing Solutions · HD Review</span>
       <span>
-        {process.env.APP_MODE === "local" ? "Fictional data · " : ""}No
-        automatic posting · Independent project
+        {process.env.APP_MODE === "local" ? "Fictional data · " : ""}
+        Real experiences · No automatic posting · <Link href="/privacy">Privacy</Link>
       </span>
     </footer>
   );

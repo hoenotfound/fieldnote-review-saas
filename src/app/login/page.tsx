@@ -17,7 +17,7 @@ export default function Login() {
           </div>
         ) : (
           <div className="notice">
-            Accounts are provisioned by the Fieldnote administrator.
+            Accounts are provisioned by the HD Review administrator at DA Smarketing Solutions.
             Contact your administrator if you need access. Public registration
             is disabled.
           </div>

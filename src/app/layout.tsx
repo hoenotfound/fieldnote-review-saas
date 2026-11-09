@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "Fieldnote · A little help with your words",
+  title: "HD Review | Real experiences. Easy to share.",
   description:
-    "Independent writing assistant for genuine customer experiences.",
+    "HD Review by DA Smarketing Solutions helps customers write and share authentic, editable review drafts for Google Reviews and Xiaohongshu.",
   robots: { index: false, follow: false },
 };
 export default function RootLayout({
