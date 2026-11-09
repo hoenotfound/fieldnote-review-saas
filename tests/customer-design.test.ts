@@ -46,5 +46,8 @@ test("mobile review options keep touch targets, strong focus, and narrow-screen 
   assert.match(css, /\.review-panel \.photo button\s*\{[^}]*min-height:\s*44px/s);
   assert.match(css, /\.review-scene textarea:focus-visible/);
   assert.match(css, /@media \(max-width: 350px\)\s*\{[\s\S]*?\.language-tiles\s*\{ grid-template-columns: 1fr;/);
+  assert.match(css, /\.review-masthead\s*\{ flex-wrap: wrap; gap: 8px; \}/);
+  assert.match(css, /\.language-switch select\s*\{ max-width: 120px; \}/);
+
   assert.match(css, /\.review-progress li\.current\s*\{ background: var\(--accent\);/);
 });
