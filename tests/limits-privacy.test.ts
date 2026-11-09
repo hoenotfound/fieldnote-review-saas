@@ -250,3 +250,28 @@ test("human verification rejects invalid tokens, wrong hostnames and wrong actio
     else process.env.TURNSTILE_SECRET_KEY = priorSecret;
   }
 });
+
+test("JSON parsing enforces byte limits before allocation and rejects invalid JSON", async () => {
+  const { readLimitedJson } = await import("../src/lib/security");
+  const make = (body: string, headers?: Record<string, string>) =>
+    new Request("http://localhost:3000/api/guest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body,
+    });
+  const tooBig = make(JSON.stringify({ input: "x".repeat(5000) }));
+  await assert.rejects(
+    readLimitedJson(tooBig, 100),
+    (e: unknown) => e instanceof AppError && e.status === 413,
+  );
+  const bogusLength = make("{}", { "Content-Length": "5000" });
+  await assert.rejects(
+    readLimitedJson(bogusLength, 100),
+    (e: unknown) => e instanceof AppError && e.status === 413,
+  );
+  await assert.rejects(
+    readLimitedJson(make("{malformed"), 100),
+    (e: unknown) => e instanceof AppError && e.status === 422,
+  );
+  assert.deepEqual(await readLimitedJson(make('{"slug":"a"}'), 100), { slug: "a" });
+});
