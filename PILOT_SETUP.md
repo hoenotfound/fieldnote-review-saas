@@ -48,6 +48,9 @@ The migrations have now been applied to the isolated Neon database. Application 
 - Install/build: `npm ci && npm run build`.
 - Start: `npm run pilot:check && npm start` after the database and operator are initialized.
 - Health check: `/api/health`. This checks app liveness only and deliberately avoids database polling that would keep Neon awake. Startup checks cover database initialization; arrange separate occasional failure monitoring before a paid service.
+- On-demand readiness: `/api/ready` checks a database query and returns HTTP 503 on failure. Use it for deliberate checks, not frequent polling that would keep Neon awake. It does not test Gemini.
+- Database and auth initialization can recover after a failed first attempt without needing a manual restart. Still test cold/warm QR journeys and application alerts.
+- Verify the real production `AI_DAILY_ATTEMPT_LIMIT`, as failures and regenerations count toward it even when merchant credits remain.
 - Add the server environment variables from the example. Keep credentials out of client-exposed variables.
 - Turn automatic deployments off initially. No background workers, Redis, R2 or payment billing are needed for this scope.
 - Do not upload the local `.data` directory, `.env.local`, demo access file or updater backups.
