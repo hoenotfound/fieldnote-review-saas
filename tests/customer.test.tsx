@@ -89,7 +89,7 @@ test("Netlify trial identifies a failed guest session without exposing response 
     local={false}
   />);
   await u.click(r.getByRole("button", { name: "Write my review" }));
-  await u.click(r.getByRole("button", { name: "Try a sample" }));
+  await u.type(r.getByLabelText("What stood out?"), "The staff listened carefully and the visit was pleasant.");
   await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
@@ -107,7 +107,7 @@ test("Netlify trial shows a safe API error code, but ordinary businesses do not"
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={{ ...loc, business_id: "netlify-trial-only", slug: "netlify-demo" }} local={false} />);
   await u.click(r.getByRole("button", { name: "Write my review" }));
-  await u.click(r.getByRole("button", { name: "Try a sample" }));
+  await u.type(r.getByLabelText("What stood out?"), "The staff listened carefully and the visit was pleasant.");
   await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
