@@ -41,12 +41,12 @@ afterEach(() => {
 test("manual draft requires confirmation; editing resets approval", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
   await u.type(
-    r.getByLabelText("Your experience"),
+    r.getByLabelText("What stood out?"),
     "The soup was tasty but the wait was long.",
   );
-  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
   const copy = r.getByRole("button", {
     name: "Copy review",
   }) as HTMLButtonElement;
@@ -63,17 +63,17 @@ test("manual draft requires confirmation; editing resets approval", async () => 
 test("switching interface language preserves original text and shows translated controls", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
   await u.type(
-    r.getByLabelText("Your experience"),
+    r.getByLabelText("What stood out?"),
     "Food was good but service was slow.",
   );
   await u.selectOptions(r.getByLabelText("Page language"), "zh-CN");
   assert.equal(
-    (r.getByLabelText("你的体验") as HTMLTextAreaElement).value,
+    (r.getByLabelText("哪些地方让你印象深刻？") as HTMLTextAreaElement).value,
     "Food was good but service was slow.",
   );
-  assert.ok(r.getByRole("button", { name: "使用我自己的文字" }));
+  assert.ok(r.getByRole("button", { name: "不使用 AI，自己写" }));
 });
 test("one generation request returns editable draft with explicit simulated label", async () => {
   let calls = 0;
@@ -86,10 +86,10 @@ test("one generation request returns editable draft with explicit simulated labe
   };
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
   await u.click(r.getByRole("button", { name: "Try a sample" }));
   await u.click(r.getByLabelText(/Use AI to help/));
-  await u.click(r.getByRole("button", { name: "Help me write" }));
+  await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByText(/Local demo: no AI call or translation/)),
   );
@@ -107,13 +107,13 @@ test("one generation request returns editable draft with explicit simulated labe
 test("Xiaohongshu manual route has separate title and review with no auto-post action", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
   await u.click(r.getByRole("button", { name: "Xiaohongshu" }));
   await u.type(
-    r.getByLabelText("Your experience"),
+    r.getByLabelText("What stood out?"),
     "Friendly staff but my meal arrived cold.",
   );
-  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
   assert.ok(r.getByLabelText("Title"));
   assert.ok(r.getByRole("button", { name: "Copy title" }));
   assert.ok(r.getByText(/open Xiaohongshu yourself/));
@@ -134,8 +134,8 @@ test("photo preview stays local and is removable without a network upload", asyn
   URL.revokeObjectURL = (url) => revoked.push(url);
   try {
     const r = testing.render(<ReviewForm location={loc} local />);
-    await u.click(r.getByRole("button", { name: "Start my review" }));
-    await u.click(r.getByText("Add photos to your preview"));
+    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByText("Add photos (optional)"));
     const file = new window.File(["photo"], "test.png", { type: "image/png" });
     await u.upload(r.getByLabelText(/Add a photo preview/), file);
     assert.ok(r.getByAltText("test.png"));
@@ -164,7 +164,7 @@ test("questionnaire starts neutral, supports feedback-only generation and clears
     });
   };
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
   const group = r.getByRole("group", { name: "Staff and service" });
   assert.equal(
     testing.within(group).queryAllByRole("button", { pressed: true }).length,
@@ -172,7 +172,7 @@ test("questionnaire starts neutral, supports feedback-only generation and clears
   );
   await u.click(r.getByLabelText(/Use AI to help/));
   const button = r.getByRole("button", {
-    name: "Help me write",
+    name: "Generate my review draft",
   }) as HTMLButtonElement;
   assert.equal(button.disabled, true);
   await u.click(
@@ -231,7 +231,7 @@ test("configured choices translate without losing answers; manual notes include 
       local
     />,
   );
-  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
   await u.click(r.getByRole("button", { name: "Coffee" }));
   await u.click(
     testing
@@ -240,7 +240,7 @@ test("configured choices translate without losing answers; manual notes include 
   );
   await u.selectOptions(r.getByLabelText("Page language"), "zh-TW");
   assert.ok(r.getByRole("button", { name: "咖啡", pressed: true }));
-  await u.click(r.getByRole("button", { name: "使用我自己的文字" }));
+  await u.click(r.getByRole("button", { name: "不使用 AI，自己寫" }));
   const text = (r.getByLabelText("評價內容") as HTMLTextAreaElement).value;
   assert.match(text, /咖啡/);
   assert.match(text, /有好有壞/);
@@ -251,11 +251,11 @@ test("optional amount accepts cents and Finish clears guided answers", async () 
   const u = userEvent.setup();
   globalThis.fetch = async () => Response.json({ ok: true });
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Start my review" }));
-  await u.click(r.getByText("Optional visit details"));
-  await u.type(r.getByLabelText("Total spent (RM)"), "25.50");
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByText("Visit details (optional)"));
+  await u.type(r.getByLabelText("Amount spent (RM)"), "25.50");
   assert.equal(
-    Number((r.getByLabelText("Total spent (RM)") as HTMLInputElement).value),
+    Number((r.getByLabelText("Amount spent (RM)") as HTMLInputElement).value),
     25.5,
   );
   await u.click(
@@ -263,7 +263,7 @@ test("optional amount accepts cents and Finish clears guided answers", async () 
       .within(r.getByRole("group", { name: "Staff and service" }))
       .getByRole("button", { name: "Could improve" }),
   );
-  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
   assert.match(
     (r.getByLabelText("Review") as HTMLTextAreaElement).value,
     /RM 25.50/,
@@ -271,14 +271,14 @@ test("optional amount accepts cents and Finish clears guided answers", async () 
   await u.click(r.getByRole("button", { name: "Finish & clear" }));
   await testing.waitFor(() => assert.equal(r.queryByLabelText("Review"), null));
   await u.click(r.getByRole("button", { name: "Start another review" }));
-  await u.click(r.getByRole("button", { name: "Start my review" }));
-  await u.click(r.getByText("Optional visit details"));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByText("Visit details (optional)"));
   assert.equal(
     r.queryAllByRole("button", { name: "Could improve", pressed: true }).length,
     0,
   );
   assert.equal(
-    (r.getByLabelText("Total spent (RM)") as HTMLInputElement).value,
+    (r.getByLabelText("Amount spent (RM)") as HTMLInputElement).value,
     "",
   );
 });
@@ -287,14 +287,14 @@ test("welcome screen selects a language and keeps the customer journey free of d
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
   assert.ok(
-    r.getByRole("heading", { name: "A visit worth putting into words." }),
+    r.getByRole("heading", { name: "Your visit, in your words." }),
   );
-  assert.equal(r.queryByLabelText("Your experience"), null);
+  assert.equal(r.queryByLabelText("What stood out?"), null);
   assert.equal(r.queryByRole("link", { name: /dashboard/i }), null);
   await u.click(r.getByRole("button", { name: "Bahasa Melayu" }));
-  await u.click(r.getByRole("button", { name: "Mula ulasan saya" }));
+  await u.click(r.getByRole("button", { name: "Tulis ulasan saya" }));
   assert.equal(
-    (r.getByLabelText("Bahasa draf") as HTMLSelectElement).value,
+    (r.getByLabelText("Bahasa ulasan") as HTMLSelectElement).value,
     "ms",
   );
 });
@@ -320,7 +320,7 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
       local
     />,
   );
-  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
   await u.click(r.getByRole("button", { name: "Service was quick" }));
   await u.click(r.getByRole("button", { name: "The wait was long" }));
   assert.ok(
@@ -329,7 +329,7 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
   assert.ok(
     r.getByRole("button", { name: "The wait was long", pressed: true }),
   );
-  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
   assert.equal(
     (r.getByLabelText("Review") as HTMLTextAreaElement).value,
     "The wait was long",
@@ -341,7 +341,7 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
   );
   await u.click(r.getByRole("button", { name: "Service was quick" }));
   assert.equal(r.queryByRole("button", { name: "Back to my draft" }), null);
-  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
@@ -352,12 +352,12 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
 test("reloading restores the draft but never restores export approval", async () => {
   const u = userEvent.setup();
   let r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.click(r.getByRole("button", { name: "Write my review" }));
   await u.type(
-    r.getByLabelText("Your experience"),
+    r.getByLabelText("What stood out?"),
     "Helpful staff and a quiet room.",
   );
-  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
   await u.click(r.getByLabelText(/I have checked this version/));
   r.unmount();
   r = testing.render(<ReviewForm location={loc} local />);
@@ -378,10 +378,10 @@ test("Finish removes browser draft even when the cleanup request fails", async (
   const u = userEvent.setup();
   globalThis.fetch = async () => { throw new Error("offline"); };
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Start my review" }));
-  await u.type(r.getByLabelText("Your experience"), "A draft to erase offline.");
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.type(r.getByLabelText("What stood out?"), "A draft to erase offline.");
   assert.ok(sessionStorage.getItem("fieldnote:demo"));
-  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
   await u.click(r.getByRole("button", { name: "Finish & clear" }));
   await testing.waitFor(() => {
     assert.equal(r.queryByLabelText("Review"), null);
@@ -400,7 +400,7 @@ test("expired saved browser draft is deleted rather than kept in storage", async
   await testing.waitFor(() => {
     assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
   });
-  assert.equal(r.queryByLabelText("Your experience"), null);
+  assert.equal(r.queryByLabelText("What stood out?"), null);
 });
 
 test("kiosk mode deletes the previous visitor's saved draft and never persists a new one", async () => {
@@ -414,9 +414,9 @@ test("kiosk mode deletes the previous visitor's saved draft and never persists a
     const u = userEvent.setup();
     const r = testing.render(<ReviewForm location={loc} local />);
     await testing.waitFor(() => assert.equal(sessionStorage.getItem("fieldnote:demo"), null));
-    assert.equal(r.queryByLabelText("Your experience"), null);
-    await u.click(r.getByRole("button", { name: "Start my review" }));
-    await u.type(r.getByLabelText("Your experience"), "A new kiosk visitor");
+    assert.equal(r.queryByLabelText("What stood out?"), null);
+    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.type(r.getByLabelText("What stood out?"), "A new kiosk visitor");
     assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
   } finally {
     window.history.replaceState({}, "", "/");
@@ -439,22 +439,22 @@ test("kiosk inactivity resets the form, and a delayed AI response cannot revive 
   try {
     const u = userEvent.setup();
     const r = testing.render(<ReviewForm location={loc} local />);
-    await u.click(r.getByRole("button", { name: "Start my review" }));
-    await u.type(r.getByLabelText("Your experience"), "Private details to clear");
+    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.type(r.getByLabelText("What stood out?"), "Private details to clear");
     await u.click(r.getByLabelText(/Use AI to help/));
-    await u.click(r.getByRole("button", { name: "Help me write" }));
+    await u.click(r.getByRole("button", { name: "Generate my review draft" }));
     await generationStarted;
     time += 5 * 60 * 1000 + 1;
     window.dispatchEvent(new window.Event("focus"));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "A visit worth putting into words." })),
+      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
     );
     release(Response.json({ title: "", body: "Private details", demo: false }));
     await new Promise<void>(resolve => setTimeout(resolve, 0));
     assert.equal(r.queryByLabelText("Review"), null);
     assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
-    await u.click(r.getByRole("button", { name: "Start my review" }));
-    assert.equal((r.getByLabelText("Your experience") as HTMLTextAreaElement).value, "");
+    await u.click(r.getByRole("button", { name: "Write my review" }));
+    assert.equal((r.getByLabelText("What stood out?") as HTMLTextAreaElement).value, "");
   } finally {
     Date.now = realNow;
     window.history.replaceState({}, "", "/");
@@ -470,12 +470,12 @@ test("first kiosk tap after a suspended interval clears the previous visitor", a
   try {
     const u = userEvent.setup();
     const r = testing.render(<ReviewForm location={loc} local />);
-    await u.click(r.getByRole("button", { name: "Start my review" }));
-    await u.type(r.getByLabelText("Your experience"), "Old customer");
+    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.type(r.getByLabelText("What stood out?"), "Old customer");
     time += 5 * 60 * 1000 + 1;
     window.dispatchEvent(new window.Event("pointerdown"));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "A visit worth putting into words." })),
+      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
     );
     assert.equal(r.queryByLabelText("Review"), null);
   } finally {
@@ -493,22 +493,22 @@ test("AI rate threshold presents a human check and leaves manual writing enabled
   const r = testing.render(
     <ReviewForm location={loc} local turnstileSiteKey="public-test-key" />,
   );
-  await u.click(r.getByRole("button", { name: "Start my review" }));
-  await u.type(r.getByLabelText("Your experience"), "A short honest experience.");
+  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.type(r.getByLabelText("What stood out?"), "A short honest experience.");
   await u.click(r.getByLabelText(/Use AI to help/));
-  await u.click(r.getByRole("button", { name: "Help me write" }));
+  await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByRole("group", { name: /quick verification/ })),
   );
   assert.equal(
-    (r.getByRole("button", { name: "Help me write" }) as HTMLButtonElement).disabled,
+    (r.getByRole("button", { name: "Generate my review draft" }) as HTMLButtonElement).disabled,
     true,
   );
   assert.equal(
-    (r.getByRole("button", { name: "Use my own words" }) as HTMLButtonElement).disabled,
+    (r.getByRole("button", { name: "Write without AI" }) as HTMLButtonElement).disabled,
     false,
   );
-  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
   assert.ok(r.getByLabelText("Review"));
 });
 
@@ -539,20 +539,20 @@ test("completed human challenge token is supplied for one retry", async () => {
     const r = testing.render(
       <ReviewForm location={loc} local turnstileSiteKey="public-test-key" />,
     );
-    await u.click(r.getByRole("button", { name: "Start my review" }));
-    await u.type(r.getByLabelText("Your experience"), "A reasonable experience.");
+    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.type(r.getByLabelText("What stood out?"), "A reasonable experience.");
     await u.click(r.getByLabelText(/Use AI to help/));
-    await u.click(r.getByRole("button", { name: "Help me write" }));
+    await u.click(r.getByRole("button", { name: "Generate my review draft" }));
     await testing.waitFor(() =>
       assert.ok(r.getByRole("group", { name: /quick verification/ })),
     );
     await testing.waitFor(() =>
       assert.equal(
-        (r.getByRole("button", { name: "Help me write" }) as HTMLButtonElement).disabled,
+        (r.getByRole("button", { name: "Generate my review draft" }) as HTMLButtonElement).disabled,
         false,
       ),
     );
-    await u.click(r.getByRole("button", { name: "Help me write" }));
+    await u.click(r.getByRole("button", { name: "Generate my review draft" }));
     await testing.waitFor(() =>
       assert.equal(
         (r.getByLabelText("Review") as HTMLTextAreaElement).value,
@@ -576,18 +576,18 @@ test("first expired kiosk click cannot turn an old answer into a new manual draf
   try {
     const u = userEvent.setup();
     const r = testing.render(<ReviewForm location={loc} local />);
-    await u.click(r.getByRole("button", { name: "Start my review" }));
-    await u.type(r.getByLabelText("Your experience"), "Previous visitor's private words.");
-    const manual = r.getByRole("button", { name: "Use my own words" });
+    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.type(r.getByLabelText("What stood out?"), "Previous visitor's private words.");
+    const manual = r.getByRole("button", { name: "Write without AI" });
     time += 5 * 60 * 1000 + 1;
     manual.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "A visit worth putting into words." })),
+      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
     );
     assert.equal(r.queryByLabelText("Review"), null);
     assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
-    await u.click(r.getByRole("button", { name: "Start my review" }));
-    assert.equal((r.getByLabelText("Your experience") as HTMLTextAreaElement).value, "");
+    await u.click(r.getByRole("button", { name: "Write my review" }));
+    assert.equal((r.getByLabelText("What stood out?") as HTMLTextAreaElement).value, "");
   } finally {
     Date.now = realNow;
     window.history.replaceState({}, "", "/");

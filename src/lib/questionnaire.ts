@@ -87,12 +87,12 @@ export function hasExperience(text: string, answers?: Answers) {
 }
 const en = {
   heading: "A few details about your visit",
-  intro: "Choose only what you experienced. Skip anything that does not apply.",
+  intro: "Choose only what you experienced. Skip anything that doesn’t apply.",
   items: "What did you try?",
-  itemsHint: "Choose any that apply, or describe something else below.",
-  feedback: "How was it?",
+  itemsHint: "Choose all that apply. You can add details in your own words.",
+  feedback: "How did it go?",
   feedbackHint:
-    "Select one or more aspects, or write your experience below. Tap a selected answer again to clear it.",
+    "Choose what reflects your experience. Tap a choice again to remove it.",
   quality: "Product or service quality",
   service: "Staff and service",
   value: "Value for money",
@@ -104,8 +104,8 @@ const en = {
   skip: "Skip",
   first: "First visit",
   returning: "Returning customer",
-  details: "Optional visit details",
-  spend: "Total spent (RM)",
+  details: "Visit details (optional)",
+  spend: "Amount spent (RM)",
   commentHint:
     "Add any details, especially what could improve. You can leave this blank if you selected feedback above.",
   notes: "Your selected details",
@@ -118,12 +118,12 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
   en,
   "zh-CN": {
     heading: "说说这次的体验",
-    intro: "只选择你真实体验过的内容。不适用的可以跳过。",
+    intro: "只选择符合实际体验的内容，不适用的可以跳过。",
     items: "你尝试了什么？",
-    itemsHint: "可多选，也可以在下方补充其他项目。",
-    feedback: "你的感受如何？",
+    itemsHint: "可多选，也可以用自己的话补充细节。",
+    feedback: "整体体验如何？",
     feedbackHint:
-      "选择一个或多个方面，或在下方写下体验。再次点击已选答案即可取消。",
+      "选择符合真实感受的选项，再次点击即可取消。",
     quality: "产品或服务品质",
     service: "员工与服务",
     value: "性价比",
@@ -135,8 +135,8 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     skip: "跳过",
     first: "第一次来",
     returning: "再次光顾",
-    details: "可选的到访详情",
-    spend: "总消费金额（RM）",
+    details: "到访详情（选填）",
+    spend: "消费金额（RM）",
     commentHint:
       "补充任何细节，尤其是可以改善的地方。如果已选择上方的感受，此处可留空。",
     notes: "你选择的详情",
@@ -146,12 +146,12 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
   },
   "zh-TW": {
     heading: "說說這次的體驗",
-    intro: "只選擇你真實體驗過的內容。不適用的可以跳過。",
+    intro: "只選擇符合實際體驗的內容，不適用的可以跳過。",
     items: "你嘗試了什麼？",
-    itemsHint: "可多選，也可以在下方補充其他項目。",
-    feedback: "你的感受如何？",
+    itemsHint: "可多選，也可以用自己的話補充細節。",
+    feedback: "整體體驗如何？",
     feedbackHint:
-      "選擇一個或多個方面，或在下方寫下體驗。再次點擊已選答案即可取消。",
+      "選擇符合真實感受的選項，再次點擊即可取消。",
     quality: "產品或服務品質",
     service: "員工與服務",
     value: "性價比",
@@ -163,8 +163,8 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     skip: "跳過",
     first: "第一次來",
     returning: "再次光顧",
-    details: "可選的到訪詳情",
-    spend: "總消費金額（RM）",
+    details: "到訪詳情（選填）",
+    spend: "消費金額（RM）",
     commentHint:
       "補充任何細節，尤其是可以改善的地方。如果已選擇上方的感受，此處可留空。",
     notes: "你選擇的詳情",
@@ -174,12 +174,12 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
   },
   ms: {
     heading: "Sedikit tentang kunjungan anda",
-    intro: "Pilih hanya perkara yang anda alami. Langkau yang tidak berkaitan.",
+    intro: "Pilih hanya perkara yang anda alami. Langkau jika tidak berkaitan.",
     items: "Apa yang anda cuba?",
-    itemsHint: "Pilih yang berkaitan, atau nyatakan perkara lain di bawah.",
+    itemsHint: "Pilih semua yang berkaitan. Tambah butiran dengan kata-kata sendiri.",
     feedback: "Bagaimana pengalaman anda?",
     feedbackHint:
-      "Pilih satu atau lebih aspek, atau tulis pengalaman di bawah. Tekan jawapan yang dipilih sekali lagi untuk membatalkannya.",
+      "Pilih perkara yang menggambarkan pengalaman anda. Tekan sekali lagi untuk membuang pilihan.",
     quality: "Kualiti produk atau perkhidmatan",
     service: "Staf dan layanan",
     value: "Nilai untuk wang",
@@ -191,7 +191,7 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     skip: "Langkau",
     first: "Kunjungan pertama",
     returning: "Pelanggan berulang",
-    details: "Butiran kunjungan pilihan",
+    details: "Butiran kunjungan (pilihan)",
     spend: "Jumlah dibelanjakan (RM)",
     commentHint:
       "Tambah butiran, terutama perkara yang boleh diperbaiki. Boleh dibiarkan kosong jika anda telah memilih maklum balas di atas.",
