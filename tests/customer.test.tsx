@@ -566,3 +566,30 @@ test("completed human challenge token is supplied for one retry", async () => {
     globalThis.fetch = oldFetch;
   }
 });
+
+test("first expired kiosk click cannot turn an old answer into a new manual draft", async () => {
+  window.history.replaceState({}, "", "/r/demo?kiosk=1");
+  const realNow = Date.now;
+  let time = realNow();
+  Date.now = () => time;
+  globalThis.fetch = async () => Response.json({ ok: true });
+  try {
+    const u = userEvent.setup();
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    await u.type(r.getByLabelText("Your experience"), "Previous visitor's private words.");
+    const manual = r.getByRole("button", { name: "Use my own words" });
+    time += 5 * 60 * 1000 + 1;
+    manual.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
+    await testing.waitFor(() =>
+      assert.ok(r.getByRole("heading", { name: "A visit worth putting into words." })),
+    );
+    assert.equal(r.queryByLabelText("Review"), null);
+    assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    assert.equal((r.getByLabelText("Your experience") as HTMLTextAreaElement).value, "");
+  } finally {
+    Date.now = realNow;
+    window.history.replaceState({}, "", "/");
+  }
+});
