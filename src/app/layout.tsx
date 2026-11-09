@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./customer-review.css";
 export const metadata: Metadata = {
   title: "HD Review | Real experiences. Easy to share.",
   description:
