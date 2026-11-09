@@ -45,17 +45,33 @@ async function createDatabase(): Promise<DB> {
   const dataPath = path.resolve(process.env.LOCAL_DATA_DIR || ".data/local");
   await mkdir(dataPath, { recursive: true });
   const client = new PGlite(dataPath);
-  await client.waitReady;
-  state.reviewClose = () => client.close();
-  for (const file of (await readdir("migrations"))
-    .filter((f) => /^\d+_.*\.sql$/.test(f))
-    .sort()) {
-    await client.exec(await readFile(path.resolve("migrations", file), "utf8"));
+  try {
+    await client.waitReady;
+    for (const file of (await readdir("migrations"))
+      .filter((f) => /^\d+_.*\.sql$/.test(f))
+      .sort()) {
+      await client.exec(await readFile(path.resolve("migrations", file), "utf8"));
+    }
+    state.reviewClose = () => client.close();
+    return drizzle(client, { schema });
+  } catch (error) {
+    await client.close().catch(() => {});
+    throw error;
   }
-  return drizzle(client, { schema });
 }
-export function getDb() {
-  return (state.reviewDb ??= createDatabase());
+export function getDb(): Promise<DB> {
+  if (!state.reviewDb) {
+    const pending = createDatabase();
+    state.reviewDb = pending;
+    // Failed startup attempts must not poison this process permanently.
+    void pending.catch(() => {
+      if (state.reviewDb === pending) {
+        delete state.reviewDb;
+        delete state.reviewClose;
+      }
+    });
+  }
+  return state.reviewDb;
 }
 export async function rows<T>(
   query: ReturnType<typeof sql>,
