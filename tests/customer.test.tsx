@@ -483,3 +483,86 @@ test("first kiosk tap after a suspended interval clears the previous visitor", a
     window.history.replaceState({}, "", "/");
   }
 });
+
+test("AI rate threshold presents a human check and leaves manual writing enabled", async () => {
+  const u = userEvent.setup();
+  globalThis.fetch = async url => {
+    if (String(url) === "/api/guest") return Response.json({ ok: true });
+    return Response.json({ error: "AI_CHALLENGE_REQUIRED" }, { status: 429 });
+  };
+  const r = testing.render(
+    <ReviewForm location={loc} local turnstileSiteKey="public-test-key" />,
+  );
+  await u.click(r.getByRole("button", { name: "Start my review" }));
+  await u.type(r.getByLabelText("Your experience"), "A short honest experience.");
+  await u.click(r.getByLabelText(/Use AI to help/));
+  await u.click(r.getByRole("button", { name: "Help me write" }));
+  await testing.waitFor(() =>
+    assert.ok(r.getByRole("group", { name: /quick verification/ })),
+  );
+  assert.equal(
+    (r.getByRole("button", { name: "Help me write" }) as HTMLButtonElement).disabled,
+    true,
+  );
+  assert.equal(
+    (r.getByRole("button", { name: "Use my own words" }) as HTMLButtonElement).disabled,
+    false,
+  );
+  await u.click(r.getByRole("button", { name: "Use my own words" }));
+  assert.ok(r.getByLabelText("Review"));
+});
+
+test("completed human challenge token is supplied for one retry", async () => {
+  const previous = window.turnstile;
+  const oldFetch = globalThis.fetch;
+  const u = userEvent.setup();
+  let calls = 0;
+  let verifiedToken: unknown = null;
+  window.turnstile = {
+    render: (_container, options) => {
+      const completed = options.callback as (token: string) => void;
+      completed("single-use-test-token");
+      return "widget-test";
+    },
+    remove: () => {},
+  };
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "/api/guest") return Response.json({ ok: true });
+    calls++;
+    const body = JSON.parse(String(init?.body));
+    if (calls === 1)
+      return Response.json({ error: "AI_CHALLENGE_REQUIRED" }, { status: 429 });
+    verifiedToken = body.challengeToken;
+    return Response.json({ title: "", body: "Verified draft", demo: false });
+  };
+  try {
+    const r = testing.render(
+      <ReviewForm location={loc} local turnstileSiteKey="public-test-key" />,
+    );
+    await u.click(r.getByRole("button", { name: "Start my review" }));
+    await u.type(r.getByLabelText("Your experience"), "A reasonable experience.");
+    await u.click(r.getByLabelText(/Use AI to help/));
+    await u.click(r.getByRole("button", { name: "Help me write" }));
+    await testing.waitFor(() =>
+      assert.ok(r.getByRole("group", { name: /quick verification/ })),
+    );
+    await testing.waitFor(() =>
+      assert.equal(
+        (r.getByRole("button", { name: "Help me write" }) as HTMLButtonElement).disabled,
+        false,
+      ),
+    );
+    await u.click(r.getByRole("button", { name: "Help me write" }));
+    await testing.waitFor(() =>
+      assert.equal(
+        (r.getByLabelText("Review") as HTMLTextAreaElement).value,
+        "Verified draft",
+      ),
+    );
+    assert.equal(calls, 2);
+    assert.equal(verifiedToken, "single-use-test-token");
+  } finally {
+    window.turnstile = previous;
+    globalThis.fetch = oldFetch;
+  }
+});
