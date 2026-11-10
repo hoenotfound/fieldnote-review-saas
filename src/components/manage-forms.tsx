@@ -203,7 +203,7 @@ export function LocationForm({
           defaultValue={l?.facebook_review_url || ""}
           placeholder="https://www.facebook.com/YourPage/reviews"
         />
-        <p>Optional. Copy your Page’s Reviews tab address. Enable Recommendations in Facebook Page settings.</p>
+        <p>Optional. Paste your Facebook Page URL or its Reviews tab link. We will convert standard Page URLs to the Reviews tab. Enable Recommendations and test the link on a phone.</p>
       </div>
       <div className="field">
         <label htmlFor={prefix + "-instagram-handle"}>Instagram business username</label>
