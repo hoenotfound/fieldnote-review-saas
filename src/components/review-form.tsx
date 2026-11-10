@@ -502,12 +502,6 @@ export function ReviewForm({
               {location.name}
               {location.address ? " · " + location.address : ""}
             </p>
-            {stage === "welcome" && (
-              <p className="shop-promise">
-                <ShieldCheck size={15} aria-hidden="true" />
-                {c.welcomePromise}
-              </p>
-            )}
           </div>
         </section>
         {stage !== "welcome" && stage !== "complete" && (
@@ -533,7 +527,6 @@ export function ReviewForm({
           {stage === "welcome" && (
             <section className="welcome-step">
               <div className="welcome-heading">
-                <p className="welcome-kicker">YOUR EXPERIENCE, YOUR WORDS</p>
                 <h1 tabIndex={-1} ref={headingRef}>{c.choose}</h1>
                 {locale === "en" ? (
                   <p className="welcome-bilingual" lang="zh-CN">请选择您最熟悉的语言</p>
@@ -992,17 +985,7 @@ export function ReviewForm({
         </div>
         <footer className="review-footer">
           <div className="review-footer-credit">
-            <img
-              src="/da-smarketing-logo.svg"
-              alt=""
-              width={34}
-              height={34}
-              className="review-footer-company-logo"
-            />
-            <div className="review-footer-credit-text">
-              <span>{c.powered} <strong>HD Review</strong></span>
-              <span className="review-footer-company">by DA Smarketing Solutions</span>
-            </div>
+            <HDReviewWordmark compact />
           </div>
           <a href="/privacy" className="review-footer-privacy">{t.privacyLink}</a>
         </footer>

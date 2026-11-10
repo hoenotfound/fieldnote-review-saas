@@ -725,3 +725,18 @@ test("Chinese and Malay progress indicators retain translated labels and privacy
   assert.match(malayList.textContent || "", /Bahasa/);
   assert.equal(testing.within(malayList).getAllByRole("listitem")[1].getAttribute("aria-current"), "step");
 });
+
+test("welcome credits HD Review and DA without a large standalone footer block", async () => {
+  const r = testing.render(<ReviewForm location={loc} local />);
+  const footer = r.container.querySelector(".review-footer");
+  assert.ok(footer);
+  assert.ok(footer.querySelector(".hd-brand--compact"));
+  assert.ok(footer.querySelector(".hd-brand-company-mark"));
+  assert.ok(testing.within(footer as HTMLElement).getByText("by DA Smarketing Solutions"));
+  assert.equal(footer.querySelector(".review-footer-company-logo"), null);
+  assert.ok(r.getByRole("link", { name: "Privacy information" }));
+  assert.equal(r.queryByText("YOUR EXPERIENCE, YOUR WORDS"), null);
+  assert.equal(r.queryByText("Real experiences, shared your way."), null);
+  assert.ok(r.getByRole("heading", { name: "Juniper Table" }));
+  assert.ok(r.getByText(/Town Centre/));
+});
