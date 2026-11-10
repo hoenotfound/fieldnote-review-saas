@@ -760,7 +760,7 @@ test("AI use is disclosed without a required checkbox in all four languages", as
   assert.equal(generate.disabled, false);
   assert.equal(generate.getAttribute("aria-describedby"), "ai-use-note");
   for (const language of ["zh-CN", "zh-TW", "ms", "en"]) {
-    await u.selectOptions(r.getByLabelText("Page language"), language);
+    await u.selectOptions(r.container.querySelector("#ui-language") as HTMLSelectElement, language);
     assert.ok(r.getByRole("button", { name: language === "zh-CN" ? "生成我的评价草稿" : language === "zh-TW" ? "生成我的評價草稿" : language === "ms" ? "Jana draf ulasan saya" : "Generate my review draft" }));
     assert.equal(r.queryByRole("checkbox"), null);
   }
