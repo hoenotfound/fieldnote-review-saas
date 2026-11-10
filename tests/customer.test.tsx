@@ -718,7 +718,7 @@ test("welcome credits HD Review and DA without a large standalone footer block",
   assert.ok(footer.querySelector(".hd-brand-company-mark"));
   assert.ok(testing.within(footer as HTMLElement).getByText("by DA Smarketing Solutions"));
   assert.equal(footer.querySelector(".review-footer-company-logo"), null);
-  assert.ok(r.getByRole("link", { name: "Privacy information" }));
+  assert.ok(r.getAllByRole("link", { name: "Privacy information" }).length >= 2);
   assert.equal(r.queryByText("YOUR EXPERIENCE, YOUR WORDS"), null);
   assert.equal(r.queryByText("Real experiences, shared your way."), null);
   assert.ok(r.getByRole("heading", { name: "Juniper Table" }));
