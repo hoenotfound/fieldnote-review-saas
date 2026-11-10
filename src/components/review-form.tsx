@@ -35,6 +35,7 @@ import {
   type Locale,
 } from "@/lib/i18n";
 import type { PublicLocation, Draft } from "@/lib/reviews";
+import { xiaohongshuDraftRisk } from "@/lib/review-prompts";
 type Photo = { url: string; name: string };
 export function ReviewForm({
   location,
@@ -600,6 +601,9 @@ export function ReviewForm({
                     </button>
                   )}
                 </div>
+                {!experience.trim() && (Object.keys(answers.ratings).length > 0 || (answers.details?.length || 0) > 0) && (
+                  <p className="input-observation-prompt">{t.observationNudge}</p>
+                )}
                 <textarea
                   id="experience"
                   disabled={busy}
@@ -840,6 +844,9 @@ export function ReviewForm({
                 />
                 <p>{t.editHint}</p>
               </div>
+              {platform === "xiaohongshu" && xiaohongshuDraftRisk(draft) && (
+                <p role="status" className="notice">{t.xhsRiskNotice}</p>
+              )}
               {photos.length > 0 && (
                 <div className="draft-photo-reminder">
                   <div className="photos">
