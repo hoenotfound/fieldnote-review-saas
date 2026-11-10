@@ -35,7 +35,7 @@ Branding supports a processed public logo, initials, name and colour. Independen
 
 ## Facebook and Instagram handoffs
 
-Each location can optionally configure a **Facebook Page Reviews/Recommendations link** and an **Instagram business username** in the merchant dashboard. For Facebook, customers copy their draft, open the Page Reviews tab, and personally choose Yes or No. For Instagram, customers get an editable social caption and can copy it, open Instagram, or share original local photos using the phone’s native share sheet when available.
+Each location can optionally configure a **Facebook Page URL or Reviews/Recommendations link** and an **Instagram business username** in the merchant dashboard. Facebook is disabled for customers until a link is configured. The server normalizes known Page URL formats to the Reviews tab, removing benign tracking parameters and rejecting arbitrary redirects. For Facebook, customers copy their draft, open the Page Reviews tab, and personally choose Yes or No. For Instagram, customers get an editable social caption and can copy it, open Instagram, or share original local photos using the phone’s native share sheet when available.
 
 Instagram is not a rated review destination. No login to Meta, API token or publishing permission is needed, and HD Review does not post on behalf of customers, force a tag, or guarantee that Instagram will prefill a caption or attach photos.
 
