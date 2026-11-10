@@ -107,7 +107,9 @@ export function ReviewForm({
           if (old.output in translations) setOutput(old.output);
           if ((old.draftLanguage || old.output) in translations)
             setDraftLanguage(old.draftLanguage || old.output);
-          if (["google", "xiaohongshu", "facebook", "instagram"].includes(old.platform))
+          // A saved Facebook draft must not bypass a subsequently removed Page link.
+          const facebookNoLongerConfigured = old.platform === "facebook" && !location.facebook_review_url;
+          if (!facebookNoLongerConfigured && ["google", "xiaohongshu", "facebook", "instagram"].includes(old.platform))
             setPlatform(old.platform as ReviewPlatform);
           const savedAnswers = answersSchema.safeParse(old.answers);
           if (savedAnswers.success && old.configVersion === configVersion) {
@@ -117,7 +119,8 @@ export function ReviewForm({
             if (
               old.draft &&
               typeof old.draft.body === "string" &&
-              typeof old.draft.title === "string"
+              typeof old.draft.title === "string" &&
+              !facebookNoLongerConfigured
             ) {
               setDraft(old.draft);
               setStage("review");
@@ -126,7 +129,8 @@ export function ReviewForm({
             !old.answers &&
             old.draft &&
             typeof old.draft.body === "string" &&
-            typeof old.draft.title === "string"
+            typeof old.draft.title === "string" &&
+            !facebookNoLongerConfigured
           ) {
             setDraft(old.draft);
             setStage("review");
@@ -146,7 +150,7 @@ export function ReviewForm({
       activeGeneration.current?.abort();
       photoRef.current.forEach((p) => URL.revokeObjectURL(p.url));
     };
-  }, [storageKey, configVersion, isKiosk]);
+  }, [storageKey, configVersion, isKiosk, location.facebook_review_url]);
   useEffect(() => {
     try {
       if (!isKiosk && restored.current && (stage === "visit" || stage === "review"))
@@ -206,6 +210,10 @@ export function ReviewForm({
     setMessage("");
     if (!validAnswers || !hasExperience(experience, answers)) {
       setError(t.more);
+      return;
+    }
+    if (platform === "facebook" && !location.facebook_review_url) {
+      setError(t.facebookUnavailable);
       return;
     }
     if (challengeRequired && !challengeToken) {
@@ -301,6 +309,10 @@ export function ReviewForm({
   }
   function manual() {
     if (kioskExpired.current) return;
+    if (platform === "facebook" && !location.facebook_review_url) {
+      setError(t.facebookUnavailable);
+      return;
+    }
     if (!validAnswers || !hasExperience(experience, answers)) {
       setError(t.more);
       return;
@@ -738,6 +750,7 @@ export function ReviewForm({
                     type="button"
                     disabled={busy}
                     aria-pressed={platform === "facebook"}
+                    aria-describedby={!location.facebook_review_url ? "facebook-unavailable" : undefined}
                     onClick={() => {
                       setPlatform("facebook");
                       invalidate();
@@ -751,7 +764,7 @@ export function ReviewForm({
                   </button>
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || !location.facebook_review_url}
                     aria-pressed={platform === "instagram"}
                     onClick={() => {
                       setPlatform("instagram");
@@ -765,6 +778,9 @@ export function ReviewForm({
                     {platform === "instagram" && <Check size={16} />}
                   </button>
                 </div>
+                {!location.facebook_review_url && (
+                  <p id="facebook-unavailable" className="destination-unavailable">{t.facebookUnavailable}</p>
+                )}
               </fieldset>
               <div className="field output-field">
                 <label htmlFor="output-language">{t.output}</label>
@@ -891,6 +907,13 @@ export function ReviewForm({
               {platform === "xiaohongshu" && xiaohongshuDraftRisk(draft) && (
                 <p role="status" className="notice">{t.xhsRiskNotice}</p>
               )}
+              {platform === "instagram" && (
+                <section className="instagram-sharing-guide" aria-label={t.instagramGuideTitle}>
+                  <h2>{t.instagramGuideTitle}</h2>
+                  <p>{t.instagramSteps}</p>
+                  {photos.length === 0 && <p>{t.instagramNoPhotos}</p>}
+                </section>
+              )}
               {photos.length > 0 && (
                 <section className="draft-photo-reminder" aria-label={t.photosToShare}>
                   <div className="review-photo-heading">
@@ -974,7 +997,7 @@ export function ReviewForm({
                     rel="noopener noreferrer"
                   >
                     <ExternalLink size={17} />
-                    {t.openInstagram}
+                    {location.instagram_handle ? t.instagramViewProfile : t.openInstagram}
                   </a>
                 )}
                 {platform === "google" && location.google_url && (
