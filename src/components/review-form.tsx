@@ -505,7 +505,7 @@ export function ReviewForm({
             {stage === "welcome" && (
               <p className="shop-promise">
                 <ShieldCheck size={15} aria-hidden="true" />
-                Honest words, shared on your terms
+                {c.welcomePromise}
               </p>
             )}
           </div>
@@ -535,7 +535,11 @@ export function ReviewForm({
               <div className="welcome-heading">
                 <p className="welcome-kicker">YOUR EXPERIENCE, YOUR WORDS</p>
                 <h1 tabIndex={-1} ref={headingRef}>{c.choose}</h1>
-                <p className="welcome-bilingual" lang="zh-CN">请选择您最熟悉的语言</p>
+                {locale === "en" ? (
+                  <p className="welcome-bilingual" lang="zh-CN">请选择您最熟悉的语言</p>
+                ) : (
+                  <p className="welcome-bilingual" lang="en">Choose your preferred language</p>
+                )}
               </div>
               <fieldset className="language-picker">
                 <legend className="sr-only">{c.choose}</legend>
