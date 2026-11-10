@@ -55,7 +55,11 @@ export default function Privacy() {
           <p>
             Review input is not stored as plaintext in the HD Review database.
             The server records a hash of the input, generation timing, outcome,
-            language, location and token counts. Successful draft output may
+            language, location and token counts. If you voluntarily provide a
+            spending amount, the server stores it separately with the generation
+            record for private aggregated spending insights on the merchant dashboard.
+            The amount is not sent to Gemini or included in the generated review.
+            Only successful AI draft sessions are included in those reports. Successful draft output may
             be cached encrypted for the two-hour customer session. Finish
             revokes the session and erases this cache when the server is
             reachable. Expired draft caches are cleared by the configured

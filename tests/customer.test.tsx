@@ -333,6 +333,7 @@ test("optional spending starts blank, slider syncs with exact amount and Clear r
   await u.clear(amount);
   await u.type(amount, "6500.25");
   assert.equal(Number(amount.value), 6500.25);
+  assert.match(r.getByText(/private spending analytics/).textContent || "", /Not included in your review/);
   assert.equal(slider.value, "5000");
   await u.click(r.getByRole("button", { name: "Clear amount" }));
   assert.equal(amount.value, "");
@@ -395,9 +396,9 @@ test("optional amount accepts cents and Finish clears guided answers", async () 
       .getByRole("button", { name: "Could improve" }),
   );
   await u.click(r.getByRole("button", { name: "Write without AI" }));
-  assert.match(
+  assert.doesNotMatch(
     (r.getByLabelText("Review") as HTMLTextAreaElement).value,
-    /RM 25.50/,
+    /RM 25.50|Total spent/,
   );
   await u.click(r.getByRole("button", { name: "Finish & clear" }));
   await testing.waitFor(() => assert.equal(r.queryByLabelText("Review"), null));

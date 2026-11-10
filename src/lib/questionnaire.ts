@@ -108,7 +108,7 @@ const en = {
   spend: "Amount spent (RM)",
   spendQuestion: "How much did you spend?",
   spendOptional: "Optional",
-  spendHint: "Use the slider for an estimate or type the exact amount. You can skip this.",
+  spendHint: "Optional and used only for private spending analytics. Not included in your review or sent to AI.",
   spendRange: "Spending amount slider",
   clearSpend: "Clear amount",
   commentHint:
@@ -144,7 +144,7 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     spend: "消费金额（RM）",
     spendQuestion: "这次消费了多少？",
     spendOptional: "选填",
-    spendHint: "可拖动滑块估算，或手动输入准确金额。也可以跳过。",
+    spendHint: "选填，仅用于商家内部消费金额统计，不会出现在评价中或发送给 AI。",
     spendRange: "消费金额滑块",
     clearSpend: "清除金额",
     commentHint:
@@ -177,7 +177,7 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     spend: "消費金額（RM）",
     spendQuestion: "這次消費了多少？",
     spendOptional: "選填",
-    spendHint: "可拖動滑桿估算，或手動輸入準確金額。也可以跳過。",
+    spendHint: "選填，僅用於商家內部消費金額統計，不會顯示在評價中或傳送給 AI。",
     spendRange: "消費金額滑桿",
     clearSpend: "清除金額",
     commentHint:
@@ -210,7 +210,7 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     spend: "Jumlah dibelanjakan (RM)",
     spendQuestion: "Berapa jumlah yang anda belanjakan?",
     spendOptional: "Pilihan",
-    spendHint: "Gunakan peluncur untuk anggaran atau masukkan jumlah tepat. Boleh dilangkau.",
+    spendHint: "Pilihan untuk analisis perbelanjaan dalaman sahaja. Tidak dimasukkan dalam ulasan atau dihantar kepada AI.",
     spendRange: "Peluncur jumlah perbelanjaan",
     clearSpend: "Kosongkan jumlah",
     commentHint:
@@ -252,8 +252,7 @@ export function answerNotes(
       lines.push(pair[side][locale] || pair[side].en);
   }
   if (answers.visit) lines.push(t[answers.visit]);
-  if (answers.spend !== null)
-    lines.push(`${t.spent}: RM ${answers.spend.toFixed(2)}`);
+  // Spending is submitted separately for private analytics, never review content.
   return lines.join("\n");
 }
 

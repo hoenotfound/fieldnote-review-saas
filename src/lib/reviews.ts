@@ -154,6 +154,7 @@ export async function generate(
     const notes = input.answers
       ? answerNotes(input.answers, config, input.locale)
       : "";
+    const spendRm = input.answers?.spend ?? null;
     const experience = [notes, input.experience].filter(Boolean).join("\n\n");
     if (new Date(b.expires_at).getTime() <= Date.now())
       throw new AppError("SUBSCRIPTION_EXPIRED", 403);
@@ -185,14 +186,16 @@ export async function generate(
       sql`update business set reserved=reserved+1 where id=${b.id}`,
     );
     await tx.execute(
-      sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at) values(${id},${guestId},${b.id},${guest.location_id},${input.requestKey},${inputHash},'pending',${input.locale},${input.platform},${process.env.AI_MODE === "gemini" ? "gemini" : "demo"},now()+interval '60 seconds')`,
+      sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at,spend_rm) values(${id},${guestId},${b.id},${guest.location_id},${input.requestKey},${inputHash},'pending',${input.locale},${input.platform},${process.env.AI_MODE === "gemini" ? "gemini" : "demo"},now()+interval '60 seconds',${spendRm})`,
     );
     return { id, businessId: b.id, businessName: b.name, experience };
   });
   if ("draft" in prepared) return prepared.draft!;
   try {
     const result = await provider(
-      { ...input, experience: prepared.experience! },
+      { ...input, experience: prepared.experience!,
+        // Keep the optional amount out of every AI/provider input, not only the prompt text.
+        answers: input.answers ? { ...input.answers, spend: null } : undefined },
       prepared.businessName!,
     );
     const committed = await db.transaction(async (t) => {

@@ -669,13 +669,19 @@ test("guided generation sends only selected facts once, preserves mixed feedback
     assert.match(value.experience, /Soup/);
     assert.doesNotMatch(value.experience, /Cake/);
     assert.match(value.experience, /Staff and service: Could improve/);
-    assert.match(value.experience, /Total spent: RM 25.50/);
+    assert.doesNotMatch(value.experience, /Total spent|RM 25.50/);
+    assert.equal(value.answers?.spend, null);
     assert.match(value.experience, /Returning customer/);
     return fake(value);
   };
   await generate(i, id, provider);
   await generate(i, id, provider);
   assert.equal(calls, 1);
+  // Stored privately for analytics, not included in the provider call.
+  const recorded = (await rows<{ spend_rm: string }>(
+    sql`select spend_rm from generation where guest_id=${id}`,
+  ))[0];
+  assert.equal(Number(recorded.spend_rm), 25.5);
   await assert.rejects(
     generate(
       { ...i, answers: { ...i.answers!, ratings: { service: "good" } } },

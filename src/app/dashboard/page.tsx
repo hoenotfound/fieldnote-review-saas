@@ -51,6 +51,18 @@ export default async function Dashboard({
   const locations = await rows<Location>(
     sql`select * from location where business_id=${b.id} order by name`,
   );
+  // Only successful AI generations with an optional amount count.
+  // Use the latest draft per guest session so regenerations do not double-count.
+  const spending = await rows<{ location_id: string; responses: number; avg_rm: string }>(
+    sql`select location_id, count(*)::int as responses, round(avg(spend_rm),2)::text as avg_rm
+      from (
+        select distinct on (guest_id) guest_id, location_id, spend_rm
+        from generation
+        where business_id=${b.id} and state='succeeded' and spend_rm is not null
+        order by guest_id, created_at desc
+      ) reported
+      group by location_id`,
+  );
   const bs = { ...b, expires_at: new Date(b.expires_at).toISOString() };
   return (
     <>
@@ -102,6 +114,26 @@ export default async function Dashboard({
               </strong>
             </div>
           </div>
+          <section className="card">
+            <h3>Private spending insights</h3>
+            <p className="subtitle">
+              Self-reported RM amounts from completed AI drafts only, one response per session.
+              These are estimates, not verified payments or revenue.
+              Individual amounts are not displayed and are never added to review drafts.
+            </p>
+            <div className="stats">
+              {locations.map((location) => {
+                const summary = spending.find((x) => x.location_id === location.id);
+                return (
+                  <div className="card stat" key={location.id}>
+                    <p>{location.name}</p>
+                    <strong>{summary ? "RM " + Number(summary.avg_rm).toFixed(2) : "No data"}</strong>
+                    <small>{summary ? summary.responses + " reported sessions · average amount" : "No completed AI drafts with an amount"}</small>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
           <section className="card">
             <h3>Business branding</h3>
             <BrandingForm key={b.id} business={bs} />
