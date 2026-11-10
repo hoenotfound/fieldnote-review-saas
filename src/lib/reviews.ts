@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 import { safeAiFailure, safeAiResponse } from "./ai-diagnostics";
-import { reviewSystemPrompt, xiaohongshuDraftRisk } from "./review-prompts";
+import { reviewSystemPrompt, xiaohongshuDraftRisk, containsUnstatedPrice } from "./review-prompts";
 import { limitGeneration } from "./rate-limits";
 import { getDb, rows, type DB } from "./db";
 import { AppError, hash, seal, unseal } from "./security";
@@ -292,6 +292,10 @@ export async function writeDraft(input: GenerationInput, businessName: string) {
     throw new AppError("INVALID_AI_OUTPUT", 503);
   }
   if (parsed.data.needsDetail) throw new AppError("MORE_DETAIL", 422);
+  // A real customer may mention their paid amount. Do not expose any invented
+  // amount supplied by Gemini itself.
+  if (containsUnstatedPrice(parsed.data, input.experience))
+    throw new AppError("UNSTATED_PRICE", 422);
   if (input.platform === "xiaohongshu") {
     // Never hand out generated promotional/unsafe wording; preserve user input.
     // No second Gemini call is made, and failed drafts do not consume a business credit.

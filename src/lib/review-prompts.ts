@@ -15,7 +15,7 @@ export const SHARED_REVIEW_RULES = [
   "Lead with the customer's most concrete firsthand detail. Avoid generic openings and repetitive praise.",
   "Match length to evidence: a short answer deserves a short draft; request more detail only if nothing useful can be said.",
   "Do not invent claims, calls to action, promotions, contact details, hashtags or links.",
-  "Never include specific prices, fees, currency amounts or spending figures in the review, even if the customer mentions them. Preserve qualitative feedback on value for money.",
+  "Do not invent or infer prices, fees or spending figures. The optional questionnaire amount is excluded from AI input. If a customer explicitly writes a price in their own experience, you may preserve that exact amount. Keep qualitative feedback on value for money.",
   "Return JSON title, body and needsDetail; set needsDetail=true only if no meaningful truthful draft is possible.",
 ].join(" ");
 
@@ -50,6 +50,23 @@ export const INSTAGRAM_REVIEW_RULES = [
   "Preserve criticism; never assume the customer wants to promote or recommend the business.",
   "The customer chooses their own photos, tags and final post or Story in Instagram.",
 ].join(" ");
+
+/** Catch numeric monetary amounts added by AI that were not present in the customer's own words.
+ * Normalize grouped digits (RM 1,288.00 and RM1288 refer to the same written amount).
+ * Plain numbers such as treatment names and minutes are not treated as prices.
+ */
+export function containsUnstatedPrice(
+  draft: { title: string; body: string },
+  customerText: string,
+) {
+  const money = /(?:\b(?:RM|MYR|USD|SGD|AUD|GBP)\s*|[$€£¥]\s*)(\d[\d,.]*)|\b(\d[\d,.]*)\s*(?:ringgit|dollars?|yuan|元|块|塊)\b/giu;
+  const values = (text: string) => [...text.matchAll(money)]
+    .map((match) => Number((match[1] || match[2]).replace(/,/g, "")))
+    .filter((amount) => Number.isFinite(amount));
+  const customerPrices = new Set(values(customerText));
+  return values(draft.title + "\n" + draft.body)
+    .some((amount) => !customerPrices.has(amount));
+}
 
 export function reviewSystemPrompt(platform: ReviewPlatform) {
   const rules: Record<ReviewPlatform, string> = {

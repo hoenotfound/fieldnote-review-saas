@@ -56,11 +56,16 @@ export default function Privacy() {
             Review input is not stored as plaintext in the HD Review database.
             The server records a hash of the input, generation timing, outcome,
             language, location and token counts. If you voluntarily provide a
-            spending amount, the server stores it separately with the generation
-            record for private aggregated spending insights on the merchant dashboard.
-            The amount is not sent to Gemini or included in the generated review.
-            Only successful AI draft sessions are included in those reports. Successful draft output may
-            be cached encrypted for the two-hour customer session. Finish
+            spending amount, the server stores it separately from your review
+            text for private, aggregated branch statistics. Amounts submitted
+            using Write without AI are recorded only if you tick the optional
+            sharing checkbox. Manual submissions retain no review text.
+            The questionnaire amount is not sent to Gemini or added to reviews,
+            but prices you write yourself can remain in the review text.
+            Each customer session contributes at most one latest amount to
+            the aggregate. Amount metadata is deleted after 30 days by scheduled
+            cleanup. Successful draft output may be cached encrypted for the
+            two-hour customer session. Finish
             revokes the session and erases this cache when the server is
             reachable. Expired draft caches are cleared by the configured
             cleanup process, rather than at the exact expiry second.

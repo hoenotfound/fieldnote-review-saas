@@ -46,6 +46,7 @@ async function createDatabase(): Promise<DB> {
       // Fail startup clearly if the additive social-destinations migration was missed.
       await pool.query("select facebook_review_url, instagram_handle from location limit 0");
       await pool.query("select spend_rm from generation limit 0");
+      await pool.query("select guest_id, spend_rm from manual_spending limit 0");
     } catch (cause) {
       await pool.end();
       throw new Error(

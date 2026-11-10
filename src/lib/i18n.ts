@@ -100,6 +100,7 @@ const en = {
   challengeFailed: "Verification did not complete. Please try again or use your own wording.",
   rateLimited:
     "AI requests are temporarily limited here. You can still write and share manually.",
+  unstatedPrice: "The AI added a price you didn't provide. No draft was saved. Try again or use your own wording.",
 };
 type Copy = typeof en;
 const cn: Copy = {
