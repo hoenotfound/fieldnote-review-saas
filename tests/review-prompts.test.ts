@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   reviewSystemPrompt, SHARED_REVIEW_RULES, GOOGLE_REVIEW_RULES,
-  XIAOHONGSHU_REVIEW_RULES, xiaohongshuDraftRisk,
+  XIAOHONGSHU_REVIEW_RULES, FACEBOOK_REVIEW_RULES, INSTAGRAM_REVIEW_RULES, xiaohongshuDraftRisk,
 } from "../src/lib/review-prompts";
 import { errorText, translations } from "../src/lib/i18n";
 
@@ -25,6 +25,19 @@ test("shared factual rules with only the selected platform writing guidance", ()
   }
 });
 
+test("new writing prompts preserve criticism and avoid invented endorsements or tags", () => {
+  const facebook = reviewSystemPrompt("facebook");
+  const instagram = reviewSystemPrompt("instagram");
+  assert.ok(facebook.includes(FACEBOOK_REVIEW_RULES));
+  assert.ok(instagram.includes(INSTAGRAM_REVIEW_RULES));
+  assert.ok(!facebook.includes(INSTAGRAM_REVIEW_RULES));
+  assert.ok(!instagram.includes(FACEBOOK_REVIEW_RULES));
+  assert.match(facebook, /Yes or No themselves/);
+  assert.match(instagram, /Do not invent tags/);
+  assert.match(instagram, /no separate title/);
+  for (const prompt of [facebook, instagram])
+    assert.match(prompt, /Preserve criticism, uncertainty, mixed experiences/);
+});
 test("normal honest positive, mixed and critical customer posts remain allowed", () => {
   const cases = [
     "去 Beleco 做了 facial，员工解释得很清楚，不过价钱对我来说还是有点贵。",
