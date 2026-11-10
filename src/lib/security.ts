@@ -139,6 +139,39 @@ export function googleUrl(value: string | null) {
     throw new AppError("INVALID_GOOGLE_URL");
   return u.toString();
 }
+/** Accept only a Facebook Page's Reviews/Recommendations tab URL. */
+export function facebookReviewUrl(value: string | null) {
+  if (!value?.trim()) return null;
+  let u: URL;
+  try {
+    u = new URL(value.trim());
+  } catch {
+    throw new AppError("INVALID_FACEBOOK_URL");
+  }
+  const pageReviews = /^\/[A-Za-z0-9._-]+\/reviews\/?$/.test(u.pathname) &&
+    !u.search && !u.hash;
+  const legacyPage = u.pathname === "/profile.php" &&
+    /^\d+$/.test(u.searchParams.get("id") || "") &&
+    u.searchParams.get("sk") === "reviews" &&
+    [...u.searchParams.keys()].length === 2 &&
+    !u.hash;
+  if (u.protocol !== "https:" || u.username || u.password || u.port ||
+    !["facebook.com", "www.facebook.com", "m.facebook.com"].includes(u.hostname) ||
+    !(pageReviews || legacyPage))
+    throw new AppError("INVALID_FACEBOOK_URL");
+  return u.toString();
+}
+
+/** Store an Instagram handle, not a merchant-supplied outgoing URL. */
+export function instagramHandle(value: string | null) {
+  if (!value?.trim()) return null;
+  const handle = value.trim().replace(/^@/, "");
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(handle) ||
+    handle.startsWith(".") || handle.endsWith(".") || handle.includes(".."))
+    throw new AppError("INVALID_INSTAGRAM_HANDLE");
+  return handle;
+}
+
 export function errorResponse(e: unknown) {
   if (e instanceof AppError)
     return Response.json(
