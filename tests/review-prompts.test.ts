@@ -16,6 +16,17 @@ test("customer-authored prices remain allowed but newly inferred amounts are blo
   assert.equal(containsUnstatedPrice({ title: "", body: "消费了1288元。" }, "我做了护理，感觉不错。"), true);
   // A merchant-set questionnaire label does not count as customer-written consent to show its price.
   assert.equal(containsUnstatedPrice({ title: "", body: "Great RM488 session." }, "The visit was pleasant."), true);
+  assert.equal(containsUnstatedPrice({title:"",body:"It cost RM1,200."}, "I paid 1200."), false);
+  assert.equal(containsUnstatedPrice({title:"",body:"It cost RM1.2k."}, "I paid RM1,200."), false);
+  assert.equal(containsUnstatedPrice({title:"",body:"It cost RM1200."}, "I spent 1.2k."), false);
+  assert.equal(containsUnstatedPrice({title:"",body:"The price was 300 ringgit."}, "I paid 300."), false);
+  assert.equal(containsUnstatedPrice({title:"",body:"It cost RM300."}, "I waited 300 minutes."), true);
+  assert.equal(containsUnstatedPrice({title:"",body:"The cost was seribu ringgit."}, "The service was nice."), true);
+  assert.equal(containsUnstatedPrice({title:"",body:"The cost was seribu ringgit."}, "I paid seribu ringgit."), false);
+  assert.equal(containsUnstatedPrice({title:"",body:"It was one thousand ringgit."}, "I paid RM1000."), true);
+  assert.equal(containsUnstatedPrice({title:"",body:"消费了一千二百元。"}, "我去做护理。"), true);
+  assert.equal(containsUnstatedPrice({title:"",body:"消费了一千二百元。"}, "我消费了一千二百元。"), false);
+  assert.equal(containsUnstatedPrice({title:"",body:"The 9D session was comfortable."}, "I did 9D."), false);
   for (const locale of ["en","zh-CN","zh-TW","ms"] as const)
     assert.ok(errorText("UNSTATED_PRICE", translations[locale]).length > 10);
 });

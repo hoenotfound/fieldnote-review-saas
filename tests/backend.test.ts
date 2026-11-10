@@ -143,7 +143,57 @@ test("spending averages use latest successful activity, including a cleared amou
   assert.equal(report.length, 0);
 });
 
+test("repeated manual spending writes have a session cap, but withdrawing never does", async () => {
+  const { recordManualSpending, manualSpendingInput } = await import("../src/lib/spending");
+  const id = await guest("a");
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: null, consent: false }).success, true);
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: 10, consent: false }).success, false);
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: null, consent: true }).success, false);
+  for (let i = 0; i < 8; i++)
+    await recordManualSpending({ slug: "a", spend: i + 1, consent: true }, id, db);
+  const before = await rows<{ spend_rm: string }>(sql`select spend_rm from manual_spending where guest_id=${id}`);
+  assert.equal(Number(before[0].spend_rm), 8);
+  await assert.rejects(
+    recordManualSpending({ slug: "a", spend: 9, consent: true }, id, db),
+    (e: unknown) => e instanceof AppError && e.status === 429 && e.code === "SPENDING_RATE_LIMIT",
+  );
+  await recordManualSpending({ slug: "a", spend: null, consent: false }, id, db);
+  assert.deepEqual(await rows(sql`select guest_id from manual_spending where guest_id=${id}`), []);
+  // Even repeated withdrawals are allowed; they are privacy controls, not billable writes.
+  await recordManualSpending({ slug: "a", spend: null, consent: false }, id, db);
+});
+
+test("withdrawing consent removes both manual and earlier AI amounts in that guest session", async () => {
+  const { recordManualSpending } = await import("../src/lib/spending");
+  const id = await guest("a");
+  const generationId = randomUUID();
+  await db.execute(
+    sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at,spend_rm)
+      values(${generationId},${id},'a','a',${randomUUID()},'x','succeeded','en','google','demo',now()+interval '1 hour',800)`,
+  );
+  await recordManualSpending({ slug: "a", spend: 250, consent: true }, id, db);
+  await recordManualSpending({ slug: "a", spend: null, consent: false }, id, db);
+  assert.deepEqual(await rows(sql`select guest_id from manual_spending where guest_id=${id}`), []);
+  assert.deepEqual(
+    (await rows<{ spend_rm: string | null }>(
+      sql`select spend_rm from generation where id=${generationId}`,
+    ))[0].spend_rm, null,
+  );
+  // A merchant disabling the location must not prevent the customer withdrawing.
+  await db.execute(sql`update location set active=false where id='a'`);
+  try {
+    await recordManualSpending({ slug: "a", spend: null, consent: false }, id, db);
+    await assert.rejects(
+      recordManualSpending({ slug: "a", spend: 123, consent: true }, id, db),
+      (e: unknown) => e instanceof AppError && e.status === 404,
+    );
+  } finally {
+    await db.execute(sql`update location set active=true where id='a'`);
+  }
+});
+
 test("owner can access own business but not a different business or platform admin", async () => {
+
   await requireBusiness(userId, "a");
   await assert.rejects(
     requireBusiness(userId, "b"),

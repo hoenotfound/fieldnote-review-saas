@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, rows, type DB } from "./db";
-import { AppError } from "./security";
+import { AppError, hash } from "./security";
 import { spendWindow } from "./rate-limits";
 import { spendAmountSchema } from "./questionnaire";
 
@@ -55,7 +55,7 @@ export async function recordManualSpending(
     if (!guest.location_active || !guest.business_active)
       throw new AppError("NOT_FOUND", 404);
     await spendWindow(
-      tx, "manual-spend-session", guestId, 7200, 8, "SPENDING_RATE_LIMIT",
+      tx, "manual-spend-session", hash(guestId), 7200, 8, "SPENDING_RATE_LIMIT",
     );
     await tx.execute(
       sql`insert into manual_spending(guest_id,business_id,location_id,spend_rm)

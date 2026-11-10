@@ -82,6 +82,55 @@ test("manual written price is preserved and opted-in spending sends no review co
   await testing.waitFor(() => assert.ok(r.getByText(/recorded for private statistics/)));
 });
 
+test("withdrawing spending consent removes submitted amount without changing review", async () => {
+  const requests: Array<{ url: string; body: any }> = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url: String(url), body: JSON.parse(String(init?.body)) });
+    return Response.json({ ok: true });
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.type(r.getByLabelText("Amount spent (RM)"), "250");
+  await u.type(r.getByLabelText("What stood out?"), "The facial was pleasant.");
+  await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  await testing.waitFor(() => assert.equal(requests.length, 2));
+  await testing.waitFor(() => assert.ok(r.getByText(/recorded for private statistics/)));
+  await u.click(r.getByRole("button", { name: "Edit my answers" }));
+  await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+  await testing.waitFor(() => assert.equal(requests.length, 3));
+  assert.deepEqual(requests[2], { url: "/api/spending", body: { slug: loc.slug, spend: null, consent: false } });
+  await testing.waitFor(() => assert.ok(r.getByText(/removed from statistics/)));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  assert.match((r.getByLabelText("Review") as HTMLTextAreaElement).value, /The facial was pleasant/);
+  assert.equal(requests.length, 3);
+});
+
+test("clearing an already shared amount withdraws the old amount, then accepts a new submission", async () => {
+  const requests: Array<{ url: string; body: any }> = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({url: String(url), body: JSON.parse(String(init?.body))});
+    return Response.json({ok:true});
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.type(r.getByLabelText("Amount spent (RM)"), "320");
+  await u.type(r.getByLabelText("What stood out?"), "I had a good visit.");
+  await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  await testing.waitFor(() => assert.equal(requests.length, 2));
+  await u.click(r.getByRole("button", { name: "Edit my answers" }));
+  await u.click(r.getByRole("button", { name: "Clear amount" }));
+  await testing.waitFor(() => assert.equal(requests.length, 3));
+  assert.deepEqual(requests[2].body, {slug:loc.slug, consent:false, spend:null});
+  await u.type(r.getByLabelText("Amount spent (RM)"), "110");
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  await testing.waitFor(() => assert.equal(requests.length, 5));
+  assert.deepEqual(requests[4].body, {slug:loc.slug, consent:true, spend:110});
+});
+
 test("manual review remains usable if optional spending submission fails", async () => {
   globalThis.fetch = async () => { throw new Error("offline"); };
   const u = userEvent.setup();
