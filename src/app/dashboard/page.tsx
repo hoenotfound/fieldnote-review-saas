@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { sql } from "drizzle-orm";
 import { rows } from "@/lib/db";
+import { spendingSummary } from "@/lib/spending";
 import { getAuth } from "@/lib/auth";
 import { Header } from "@/components/chrome";
 import { SignOut } from "@/components/auth-controls";
@@ -51,6 +52,7 @@ export default async function Dashboard({
   const locations = await rows<Location>(
     sql`select * from location where business_id=${b.id} order by name`,
   );
+  const spending = await spendingSummary(b.id);
   const bs = { ...b, expires_at: new Date(b.expires_at).toISOString() };
   return (
     <>
@@ -102,6 +104,31 @@ export default async function Dashboard({
               </strong>
             </div>
           </div>
+          <section className="card">
+            <h3>Private spending insights</h3>
+            <p className="subtitle">
+              Optional, self-reported amounts from successful AI drafts and manually
+              shared spending reports. Only the latest submission per customer session
+              counts, including cleared amounts. These are estimates, not revenue.
+              To protect individual amounts, averages appear only when at least three sessions have reported spending.
+            </p>
+            <div className="stats">
+              {locations.map((location) => {
+                const summary = spending.find((x) => x.location_id === location.id);
+                return (
+                  <div className="card stat" key={location.id}>
+                    <p>{location.name}</p>
+                    <strong>{summary && summary.responses >= 3
+                      ? "RM " + Number(summary.avg_rm).toFixed(2)
+                      : "Not enough data"}</strong>
+                    <small>{summary
+                      ? summary.responses + " reported sessions · average shown from 3 sessions"
+                      : "No sessions with a reported amount"}</small>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
           <section className="card">
             <h3>Business branding</h3>
             <BrandingForm key={b.id} business={bs} />

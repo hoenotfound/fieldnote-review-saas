@@ -100,6 +100,9 @@ const en = {
   challengeFailed: "Verification did not complete. Please try again or use your own wording.",
   rateLimited:
     "AI requests are temporarily limited here. You can still write and share manually.",
+  unstatedPrice: "The AI added a price you didn't provide. No draft was saved. Try again or use your own wording.",
+  manualSpendingRemoved: "Your previously shared amount was removed from statistics.",
+  manualSpendingRemovalFailed: "We couldn't remove the previously shared amount. Please try again before finishing.",
 };
 type Copy = typeof en;
 const cn: Copy = {
@@ -184,6 +187,9 @@ const cn: Copy = {
   challengePrompt: "请先完成简短验证，才能继续使用 AI。你也可以直接使用自己的文字。",
   challengeFailed: "验证未完成，请重试或使用自己的文字。",
   rateLimited: "目前 AI 请求次数受限。你仍可自行撰写并分享。",
+  unstatedPrice: "AI 加入了你没有填写的价格，草稿未保存。请重试或使用自己的文字。",
+  manualSpendingRemoved: "之前提交的消费金额已从统计中清除。",
+  manualSpendingRemovalFailed: "无法清除之前提交的金额，请在结束前重试。",
 };
 const tw: Copy = {
   badge: "保留你的真實感受",
@@ -267,6 +273,9 @@ const tw: Copy = {
   challengePrompt: "請先完成簡短驗證，才能繼續使用 AI。你也可以直接使用自己的文字。",
   challengeFailed: "驗證未完成，請重試或使用自己的文字。",
   rateLimited: "目前 AI 請求次數受限。你仍可自行撰寫並分享。",
+  unstatedPrice: "AI 加入了你沒有填寫的價格，草稿未儲存。請重試或使用自己的文字。",
+  manualSpendingRemoved: "之前提交的消費金額已從統計中清除。",
+  manualSpendingRemovalFailed: "無法清除之前提交的金額，請在結束前重試。",
 };
 const ms: Copy = {
   badge: "PENGALAMAN ANDA, LEBIH JELAS",
@@ -365,6 +374,9 @@ const ms: Copy = {
   challengeFailed: "Pengesahan belum selesai. Cuba lagi atau guna ayat sendiri.",
   rateLimited:
     "Permintaan AI dihadkan buat sementara. Anda masih boleh menulis dan berkongsi sendiri.",
+  unstatedPrice: "AI menambah harga yang anda tidak berikan. Draf tidak disimpan. Cuba lagi atau tulis sendiri.",
+  manualSpendingRemoved: "Jumlah yang dikongsi sebelum ini telah dipadam daripada statistik.",
+  manualSpendingRemovalFailed: "Jumlah yang dikongsi belum dapat dipadam. Sila cuba lagi sebelum selesai.",
 };
 export const translations: Record<Locale, Copy> = {
   en,
@@ -374,6 +386,7 @@ export const translations: Record<Locale, Copy> = {
 };
 export function errorText(code: string, t: Copy) {
   if (code === "FACEBOOK_NOT_CONFIGURED") return t.facebookUnavailable;
+  if (code === "UNSTATED_PRICE") return t.unstatedPrice;
   if (["QUOTA_EXHAUSTED", "DAILY_LIMIT", "BUSINESS_DAILY_LIMIT"].includes(code)) return t.quota;
   if (["SESSION_RATE_LIMIT", "AI_RATE_LIMIT"].includes(code)) return t.rateLimited;
   if (code === "AI_CHALLENGE_REQUIRED") return t.challengePrompt;

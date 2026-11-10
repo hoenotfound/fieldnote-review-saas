@@ -44,6 +44,7 @@ export type QuestionnaireConfig = z.infer<typeof questionnaireConfigSchema>;
 export const emptyConfig: QuestionnaireConfig = { items: [] };
 export const aspects = ["quality", "service", "value", "environment"] as const;
 export const sentiments = ["good", "mixed", "poor"] as const;
+export const spendAmountSchema = z.number().finite().min(0).max(100000).multipleOf(0.01);
 export const answersSchema = z
   .object({
     details: z
@@ -64,7 +65,7 @@ export const answersSchema = z
       })
       .strict(),
     visit: z.enum(["", "first", "returning"]),
-    spend: z.number().finite().min(0).max(100000).multipleOf(0.01).nullable(),
+    spend: spendAmountSchema.nullable(),
   })
   .strict();
 export type Answers = z.infer<typeof answersSchema>;
@@ -108,8 +109,12 @@ const en = {
   spend: "Amount spent (RM)",
   spendQuestion: "How much did you spend?",
   spendOptional: "Optional",
-  spendHint: "Use the slider for an estimate or type the exact amount. You can skip this.",
+  spendHint: "Optional and used only for private spending analytics. Not included in your review or sent to AI.",
   spendRange: "Spending amount slider",
+  manualSpendConsent: "Optional: Share my spending amount for private branch statistics when writing without AI. It won't be part of my review.",
+  manualSpendSaved: "Your optional spending amount was recorded for private statistics.",
+  manualSpendFailed: "Your review is ready, but your optional spending amount could not be saved.",
+  retrySpendRemoval: "Remove previously shared amount",
   clearSpend: "Clear amount",
   commentHint:
     "Add any details, especially what could improve. You can leave this blank if you selected feedback above.",
@@ -144,8 +149,12 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     spend: "消费金额（RM）",
     spendQuestion: "这次消费了多少？",
     spendOptional: "选填",
-    spendHint: "可拖动滑块估算，或手动输入准确金额。也可以跳过。",
+    spendHint: "选填，仅用于商家内部消费金额统计，不会出现在评价中或发送给 AI。",
     spendRange: "消费金额滑块",
+    manualSpendConsent: "选填：不使用 AI 写评价时，同意将消费金额用于商家内部统计，不会出现在评价里。",
+    manualSpendSaved: "消费金额已保存作内部统计。",
+    manualSpendFailed: "评价已准备好，但选填的消费金额未能保存。",
+    retrySpendRemoval: "清除之前提交的消费金额",
     clearSpend: "清除金额",
     commentHint:
       "补充任何细节，尤其是可以改善的地方。如果已选择上方的感受，此处可留空。",
@@ -177,8 +186,12 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     spend: "消費金額（RM）",
     spendQuestion: "這次消費了多少？",
     spendOptional: "選填",
-    spendHint: "可拖動滑桿估算，或手動輸入準確金額。也可以跳過。",
+    spendHint: "選填，僅用於商家內部消費金額統計，不會顯示在評價中或傳送給 AI。",
     spendRange: "消費金額滑桿",
+    manualSpendConsent: "選填：不使用 AI 寫評價時，同意將消費金額用於商家內部統計，不會出現在評價裡。",
+    manualSpendSaved: "消費金額已儲存作內部統計。",
+    manualSpendFailed: "評價已準備好，但選填的消費金額未能儲存。",
+    retrySpendRemoval: "清除之前提交的消費金額",
     clearSpend: "清除金額",
     commentHint:
       "補充任何細節，尤其是可以改善的地方。如果已選擇上方的感受，此處可留空。",
@@ -210,8 +223,12 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     spend: "Jumlah dibelanjakan (RM)",
     spendQuestion: "Berapa jumlah yang anda belanjakan?",
     spendOptional: "Pilihan",
-    spendHint: "Gunakan peluncur untuk anggaran atau masukkan jumlah tepat. Boleh dilangkau.",
+    spendHint: "Pilihan untuk analisis perbelanjaan dalaman sahaja. Tidak dimasukkan dalam ulasan atau dihantar kepada AI.",
     spendRange: "Peluncur jumlah perbelanjaan",
+    manualSpendConsent: "Pilihan: Saya setuju berkongsi jumlah perbelanjaan untuk statistik dalaman jika menulis tanpa AI. Tidak dimasukkan dalam ulasan.",
+    manualSpendSaved: "Jumlah perbelanjaan pilihan telah disimpan untuk statistik dalaman.",
+    manualSpendFailed: "Ulasan anda sudah siap, tetapi jumlah perbelanjaan pilihan tidak dapat disimpan.",
+    retrySpendRemoval: "Padam jumlah perbelanjaan yang dikongsi sebelum ini",
     clearSpend: "Kosongkan jumlah",
     commentHint:
       "Tambah butiran, terutama perkara yang boleh diperbaiki. Boleh dibiarkan kosong jika anda telah memilih maklum balas di atas.",
@@ -252,8 +269,7 @@ export function answerNotes(
       lines.push(pair[side][locale] || pair[side].en);
   }
   if (answers.visit) lines.push(t[answers.visit]);
-  if (answers.spend !== null)
-    lines.push(`${t.spent}: RM ${answers.spend.toFixed(2)}`);
+  // Spending is submitted separately for private analytics, never review content.
   return lines.join("\n");
 }
 

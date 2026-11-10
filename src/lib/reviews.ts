@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 import { safeAiFailure, safeAiResponse } from "./ai-diagnostics";
-import { reviewSystemPrompt, xiaohongshuDraftRisk } from "./review-prompts";
+import { reviewSystemPrompt, xiaohongshuDraftRisk, containsUnstatedPrice } from "./review-prompts";
 import { limitGeneration } from "./rate-limits";
 import { getDb, rows, type DB } from "./db";
 import { AppError, hash, seal, unseal } from "./security";
@@ -154,6 +154,7 @@ export async function generate(
     const notes = input.answers
       ? answerNotes(input.answers, config, input.locale)
       : "";
+    const spendRm = input.answers?.spend ?? null;
     const experience = [notes, input.experience].filter(Boolean).join("\n\n");
     if (new Date(b.expires_at).getTime() <= Date.now())
       throw new AppError("SUBSCRIPTION_EXPIRED", 403);
@@ -185,15 +186,20 @@ export async function generate(
       sql`update business set reserved=reserved+1 where id=${b.id}`,
     );
     await tx.execute(
-      sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at) values(${id},${guestId},${b.id},${guest.location_id},${input.requestKey},${inputHash},'pending',${input.locale},${input.platform},${process.env.AI_MODE === "gemini" ? "gemini" : "demo"},now()+interval '60 seconds')`,
+      sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at,spend_rm) values(${id},${guestId},${b.id},${guest.location_id},${input.requestKey},${inputHash},'pending',${input.locale},${input.platform},${process.env.AI_MODE === "gemini" ? "gemini" : "demo"},now()+interval '60 seconds',${spendRm})`,
     );
     return { id, businessId: b.id, businessName: b.name, experience };
   });
   if ("draft" in prepared) return prepared.draft!;
   try {
     const result = await provider(
-      { ...input, experience: prepared.experience! },
+      { ...input, experience: prepared.experience!,
+        // Keep the optional amount out of every AI/provider input, not only the prompt text.
+        answers: input.answers ? { ...input.answers, spend: null } : undefined },
       prepared.businessName!,
+      // Only voluntary free text may authorize a price in the AI result.
+      // Questionnaire labels and spending answers must never authorize prices.
+      input.experience,
     );
     const committed = await db.transaction(async (t) => {
       const tx = t as unknown as DB;
@@ -230,7 +236,7 @@ const outputSchema = z.object({
   body: z.string().min(1).max(3000),
   needsDetail: z.boolean(),
 });
-export async function writeDraft(input: GenerationInput, businessName: string) {
+export async function writeDraft(input: GenerationInput, businessName: string, customerText = input.experience) {
   if (process.env.AI_MODE !== "gemini") {
     if (process.env.APP_MODE !== "local")
       throw new AppError("AI_NOT_CONFIGURED", 503);
@@ -289,6 +295,10 @@ export async function writeDraft(input: GenerationInput, businessName: string) {
     throw new AppError("INVALID_AI_OUTPUT", 503);
   }
   if (parsed.data.needsDetail) throw new AppError("MORE_DETAIL", 422);
+  // A real customer may mention their paid amount. Do not expose any invented
+  // amount supplied by Gemini itself.
+  if (containsUnstatedPrice(parsed.data, customerText))
+    throw new AppError("UNSTATED_PRICE", 422);
   if (input.platform === "xiaohongshu") {
     // Never hand out generated promotional/unsafe wording; preserve user input.
     // No second Gemini call is made, and failed drafts do not consume a business credit.

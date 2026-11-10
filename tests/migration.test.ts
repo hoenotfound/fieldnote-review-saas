@@ -13,6 +13,7 @@ test("existing local data survives the additive questionnaire migration and reop
   await original.exec(await readFile("migrations/001_initial.sql", "utf8"));
   // A legacy database is reachable but must fail the new schema readiness check.
   await assert.rejects(original.query("select facebook_review_url, instagram_handle from location limit 0"));
+  await assert.rejects(original.query("select spend_rm from generation limit 0"));
   await original.exec(
     "insert into business(id,name,accent,initials,expires_at,allowance,used) values('existing','My edited brand','#123456','ME',now()+interval '1 day',40,7)",
   );
@@ -88,6 +89,10 @@ test("existing local data survives the additive questionnaire migration and reop
     assert.equal(after.google_url, "https://g.page/r/demo/review");
     assert.equal(after.facebook_review_url, "https://www.facebook.com/TestPage/reviews");
     assert.equal(after.instagram_handle, "testclinic");
+    const amountColumn = (await rows<{ count: number }>(
+      sql`select count(*)::int as count from information_schema.columns where table_schema='public' and table_name='generation' and column_name='spend_rm'`,
+    ))[0];
+    assert.equal(amountColumn.count, 1);
   } finally {
     await closeDb();
   }

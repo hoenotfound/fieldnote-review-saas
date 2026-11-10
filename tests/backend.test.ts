@@ -84,7 +84,116 @@ const fake = async (i: GenerationInput) => ({
   inputTokens: 0,
   outputTokens: 0,
 });
+test("manual spending needs consent and correct location, and never charges AI credits", async () => {
+  const { recordManualSpending, manualSpendingInput } = await import("../src/lib/spending");
+  const guestId = await guest("a");
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: 320, consent: false }).success, false);
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: 100000.01, consent: true }).success, false);
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: 320, consent: true, text: "private review" }).success, false);
+  const before = (await rows<{ used: number; reserved: number }>(
+    sql`select used,reserved from business where id='a'`,
+  ))[0];
+  await recordManualSpending({ slug: "a", spend: 320, consent: true }, guestId, db);
+  await recordManualSpending({ slug: "a", spend: 450.25, consent: true }, guestId, db);
+  const records = await rows<{ spend_rm: string }>(
+    sql`select spend_rm from manual_spending where guest_id=${guestId}`,
+  );
+  assert.equal(records.length, 1);
+  assert.equal(Number(records[0].spend_rm), 450.25);
+  const after = (await rows<{ used: number; reserved: number }>(
+    sql`select used,reserved from business where id='a'`,
+  ))[0];
+  assert.deepEqual(after, before);
+  assert.deepEqual(await rows(sql`select id from generation where guest_id=${guestId}`), []);
+  await assert.rejects(
+    recordManualSpending({ slug: "b", spend: 100, consent: true }, guestId, db),
+    (e: unknown) => e instanceof AppError && e.code === "SESSION_EXPIRED",
+  );
+  await db.execute(sql`update guest_session set expires_at=now()-interval '1 minute' where id=${guestId}`);
+  await assert.rejects(
+    recordManualSpending({ slug: "a", spend: 100, consent: true }, guestId, db),
+    (e: unknown) => e instanceof AppError && e.status === 401,
+  );
+});
+
+test("spending averages use latest successful activity, including a cleared amount", async () => {
+  const { spendingSummary, recordManualSpending } = await import("../src/lib/spending");
+  const businessId = "analytics-test";
+  const locationId = "analytics-location";
+  await db.execute(sql`insert into business(id,name,expires_at,allowance)
+    values(${businessId},'Analytics test',now()+interval '1 day',100)`);
+  await db.execute(sql`insert into location(id,business_id,slug,qr_code,name,address)
+    values(${locationId},${businessId},${locationId},'analytics-qr','Analytics branch','Local test')`);
+  const first = await guest(locationId);
+  await db.execute(sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at,created_at,spend_rm)
+    values(${randomUUID()},${first},${businessId},${locationId},${randomUUID()},'a','succeeded','en','google','demo',now()+interval '1 hour',now()-interval '10 minutes',125)`);
+  await db.execute(sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at,created_at,spend_rm)
+    values(${randomUUID()},${first},${businessId},${locationId},${randomUUID()},'b','succeeded','en','google','demo',now()+interval '1 hour',now()-interval '9 minutes',null)`);
+  assert.deepEqual(await spendingSummary(businessId, db), []);
+  const second = await guest(locationId);
+  await recordManualSpending({ slug: locationId, spend: 90, consent: true }, second, db);
+  let report = await spendingSummary(businessId, db);
+  assert.equal(report.length, 1);
+  assert.equal(report[0].responses, 1);
+  assert.equal(Number(report[0].avg_rm), 90);
+  // Newer successful AI draft with a cleared amount overrides the manual one.
+  await db.execute(sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at,created_at,spend_rm)
+    values(${randomUUID()},${second},${businessId},${locationId},${randomUUID()},'c','succeeded','en','google','demo',now()+interval '1 hour',now()+interval '1 minute',null)`);
+  report = await spendingSummary(businessId, db);
+  assert.equal(report.length, 0);
+});
+
+test("repeated manual spending writes have a session cap, but withdrawing never does", async () => {
+  const { recordManualSpending, manualSpendingInput } = await import("../src/lib/spending");
+  const id = await guest("a");
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: null, consent: false }).success, true);
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: 10, consent: false }).success, false);
+  assert.equal(manualSpendingInput.safeParse({ slug: "a", spend: null, consent: true }).success, false);
+  for (let i = 0; i < 8; i++)
+    await recordManualSpending({ slug: "a", spend: i + 1, consent: true }, id, db);
+  const before = await rows<{ spend_rm: string }>(sql`select spend_rm from manual_spending where guest_id=${id}`);
+  assert.equal(Number(before[0].spend_rm), 8);
+  await assert.rejects(
+    recordManualSpending({ slug: "a", spend: 9, consent: true }, id, db),
+    (e: unknown) => e instanceof AppError && e.status === 429 && e.code === "SPENDING_RATE_LIMIT",
+  );
+  await recordManualSpending({ slug: "a", spend: null, consent: false }, id, db);
+  assert.deepEqual(await rows(sql`select guest_id from manual_spending where guest_id=${id}`), []);
+  // Even repeated withdrawals are allowed; they are privacy controls, not billable writes.
+  await recordManualSpending({ slug: "a", spend: null, consent: false }, id, db);
+});
+
+test("withdrawing consent removes both manual and earlier AI amounts in that guest session", async () => {
+  const { recordManualSpending } = await import("../src/lib/spending");
+  const id = await guest("a");
+  const generationId = randomUUID();
+  await db.execute(
+    sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at,spend_rm)
+      values(${generationId},${id},'a','a',${randomUUID()},'x','succeeded','en','google','demo',now()+interval '1 hour',800)`,
+  );
+  await recordManualSpending({ slug: "a", spend: 250, consent: true }, id, db);
+  await recordManualSpending({ slug: "a", spend: null, consent: false }, id, db);
+  assert.deepEqual(await rows(sql`select guest_id from manual_spending where guest_id=${id}`), []);
+  assert.deepEqual(
+    (await rows<{ spend_rm: string | null }>(
+      sql`select spend_rm from generation where id=${generationId}`,
+    ))[0].spend_rm, null,
+  );
+  // A merchant disabling the location must not prevent the customer withdrawing.
+  await db.execute(sql`update location set active=false where id='a'`);
+  try {
+    await recordManualSpending({ slug: "a", spend: null, consent: false }, id, db);
+    await assert.rejects(
+      recordManualSpending({ slug: "a", spend: 123, consent: true }, id, db),
+      (e: unknown) => e instanceof AppError && e.status === 404,
+    );
+  } finally {
+    await db.execute(sql`update location set active=true where id='a'`);
+  }
+});
+
 test("owner can access own business but not a different business or platform admin", async () => {
+
   await requireBusiness(userId, "a");
   await assert.rejects(
     requireBusiness(userId, "b"),
@@ -669,13 +778,19 @@ test("guided generation sends only selected facts once, preserves mixed feedback
     assert.match(value.experience, /Soup/);
     assert.doesNotMatch(value.experience, /Cake/);
     assert.match(value.experience, /Staff and service: Could improve/);
-    assert.match(value.experience, /Total spent: RM 25.50/);
+    assert.doesNotMatch(value.experience, /Total spent|RM 25.50/);
+    assert.equal(value.answers?.spend, null);
     assert.match(value.experience, /Returning customer/);
     return fake(value);
   };
   await generate(i, id, provider);
   await generate(i, id, provider);
   assert.equal(calls, 1);
+  // Stored privately for analytics, not included in the provider call.
+  const recorded = (await rows<{ spend_rm: string }>(
+    sql`select spend_rm from generation where guest_id=${id}`,
+  ))[0];
+  assert.equal(Number(recorded.spend_rm), 25.5);
   await assert.rejects(
     generate(
       { ...i, answers: { ...i.answers!, ratings: { service: "good" } } },

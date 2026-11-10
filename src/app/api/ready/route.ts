@@ -10,6 +10,8 @@ export async function GET() {
     await rows(sql`select 1 as ready`);
     // Readiness means the code-required schema exists, not only that Neon responds.
     await rows(sql`select facebook_review_url, instagram_handle from location limit 0`);
+    await rows(sql`select spend_rm from generation limit 0`);
+    await rows(sql`select guest_id, spend_rm from manual_spending limit 0`);
     return Response.json(
       { ok: true },
       { headers: { "Cache-Control": "no-store" } },
