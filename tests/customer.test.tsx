@@ -747,3 +747,62 @@ test("Xiaohongshu highlights possibly risky customer wording without blocking ho
   assert.ok(r.getByText(/AI-content disclosure where applicable/));
   assert.equal((r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement).disabled, false);
 });
+
+test("AI use is disclosed without a required checkbox in all four languages", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  assert.ok(r.getByText(/Selecting Generate sends your text/));
+  assert.equal(r.queryByRole("checkbox"), null);
+  const generate = r.getByRole("button", { name: "Generate my review draft" }) as HTMLButtonElement;
+  assert.equal(generate.disabled, true);
+  await u.type(r.getByLabelText("What stood out?"), "Friendly and helpful staff.");
+  assert.equal(generate.disabled, false);
+  assert.equal(generate.getAttribute("aria-describedby"), "ai-use-note");
+  for (const language of ["zh-CN", "zh-TW", "ms", "en"]) {
+    await u.selectOptions(r.getByLabelText("Page language"), language);
+    assert.ok(r.getByRole("button", { name: language === "zh-CN" ? "生成我的评价草稿" : language === "zh-TW" ? "生成我的評價草稿" : language === "ms" ? "Jana draf ulasan saya" : "Generate my review draft" }));
+    assert.equal(r.queryByRole("checkbox"), null);
+  }
+});
+
+test("original selected photos download locally for Google and Xiaohongshu, without upload", async () => {
+  const u = userEvent.setup();
+  const oldCreate = URL.createObjectURL;
+  const oldRevoke = URL.revokeObjectURL;
+  const revoked: string[] = [];
+  let created = 0, networkRequests = 0;
+  URL.createObjectURL = () => "blob:local-photo-" + (++created);
+  URL.revokeObjectURL = (url) => revoked.push(url);
+  globalThis.fetch = async () => {
+    networkRequests++;
+    return Response.json({ ok: true });
+  };
+  try {
+    for (const platform of ["Google Reviews", "Xiaohongshu"]) {
+      const r = testing.render(<ReviewForm location={loc} local />);
+      await u.click(r.getByRole("button", { name: "English" }));
+      await u.click(r.getByText("Add photos (optional)"));
+      const input = r.getByLabelText(/Add a photo preview/);
+      await u.upload(input, new window.File(["photo-content"], "my-original.png", { type: "image/png" }));
+      assert.ok(r.getByAltText("my-original.png"));
+      if (platform === "Xiaohongshu") await u.click(r.getByRole("button", { name: platform }));
+      await u.type(r.getByLabelText("What stood out?"), "A personal experience with friendly staff.");
+      await u.click(r.getByRole("button", { name: "Write without AI" }));
+      const link = r.getByRole("link", { name: "Download photo: my-original.png" }) as HTMLAnchorElement;
+      assert.equal(link.getAttribute("href"), "blob:local-photo-" + created);
+      assert.equal(link.getAttribute("download"), "my-original.png");
+      assert.ok(r.getByText("Photos for your post"));
+      assert.equal(networkRequests, platform === "Google Reviews" ? 0 : 1);
+      await u.click(r.getByRole("button", { name: "Finish & clear" }));
+      assert.equal(r.queryByRole("link", { name: "Download photo: my-original.png" }), null);
+      assert.ok(revoked.includes("blob:local-photo-" + created));
+      r.unmount();
+    }
+    // Only the Finish cleanup calls the guest endpoint, never the photo itself.
+    assert.equal(networkRequests, 2);
+  } finally {
+    URL.createObjectURL = oldCreate;
+    URL.revokeObjectURL = oldRevoke;
+  }
+});
