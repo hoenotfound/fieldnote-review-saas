@@ -23,6 +23,8 @@ export type Location = {
   name: string;
   address: string;
   google_url: string | null;
+  facebook_review_url: string | null;
+  instagram_handle: string | null;
   active: boolean;
   slug: string;
   qr_code: string;
@@ -49,7 +51,11 @@ function useSave() {
               ? "Wait for the active generation before resetting usage."
               : data.error === "INVALID_GOOGLE_URL"
                 ? "Use an HTTPS Google Maps or Google review link."
-                : "Unable to save. Check your fields and access.",
+                : data.error === "INVALID_FACEBOOK_URL"
+                  ? "Use a Facebook Page Reviews tab link, such as https://www.facebook.com/YourPage/reviews."
+                  : data.error === "INVALID_INSTAGRAM_HANDLE"
+                    ? "Enter a valid Instagram username, such as @yourbusiness."
+                    : "Unable to save. Check your fields and access.",
         );
         return false;
       }
@@ -145,6 +151,8 @@ export function LocationForm({
           name: d.get("name"),
           address: d.get("address"),
           googleUrl: d.get("googleUrl"),
+          facebookReviewUrl: d.get("facebookReviewUrl"),
+          instagramHandle: d.get("instagramHandle"),
           active: d.get("active") === "on",
         });
         if (ok && !l) form.reset();
@@ -185,6 +193,28 @@ export function LocationForm({
           Leave empty for fictional businesses. Check the destination branch
           before using a real link.
         </p>
+      </div>
+      <div className="field">
+        <label htmlFor={prefix + "-facebook-url"}>Facebook Page recommendations link</label>
+        <input
+          id={prefix + "-facebook-url"}
+          name="facebookReviewUrl"
+          type="url"
+          defaultValue={l?.facebook_review_url || ""}
+          placeholder="https://www.facebook.com/YourPage/reviews"
+        />
+        <p>Optional. Paste your Facebook Page URL or its Reviews tab link. We will convert standard Page URLs to the Reviews tab. Enable Recommendations and test the link on a phone.</p>
+      </div>
+      <div className="field">
+        <label htmlFor={prefix + "-instagram-handle"}>Instagram business username</label>
+        <input
+          id={prefix + "-instagram-handle"}
+          name="instagramHandle"
+          defaultValue={l?.instagram_handle ? "@" + l.instagram_handle : ""}
+          placeholder="@yourbusiness"
+          maxLength={31}
+        />
+        <p>Optional. Customers choose whether to tag you. Nothing is posted automatically.</p>
       </div>
       <label className="inline-label" style={{ marginBottom: 20 }}>
         <input

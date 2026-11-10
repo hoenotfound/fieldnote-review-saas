@@ -151,6 +151,49 @@ test("Xiaohongshu manual route has separate title and review with no auto-post a
   assert.equal(r.queryByRole("button", { name: /publish|post review/i }), null);
 });
 
+test("Facebook uses the configured Page Reviews link without automatically recommending the business", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={{ ...loc, facebook_review_url: "https://www.facebook.com/YourPage/reviews" }} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.click(r.getByRole("button", { name: "Facebook" }));
+  await u.type(r.getByLabelText("What stood out?"), "Friendly staff but a long queue.");
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  const link = r.getByRole("link", { name: "Open Facebook Recommendations" }) as HTMLAnchorElement;
+  assert.equal(link.href, "https://www.facebook.com/YourPage/reviews");
+  assert.ok(r.getByText(/choose Yes or No based on your experience/));
+  assert.equal(r.queryByRole("button", { name: /post|publish/i }), null);
+});
+test("Facebook without a Page link is disabled before a customer spends AI credits", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  const facebook = r.getByRole("button", { name: "Facebook" }) as HTMLButtonElement;
+  assert.equal(facebook.disabled, true);
+  assert.equal(facebook.getAttribute("aria-pressed"), "false");
+  assert.ok(r.getByText(/Facebook Recommendations are not set up for this location yet/));
+  await u.click(facebook);
+  assert.equal(facebook.getAttribute("aria-pressed"), "false");
+  assert.ok(r.getByRole("button", { name: "Google Reviews" }).getAttribute("aria-pressed") === "true");
+});
+
+test("Instagram offers an editable caption and manual photo and tag options", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={{ ...loc, instagram_handle: "yourbusiness" }} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.click(r.getByRole("button", { name: "Instagram" }));
+  await u.type(r.getByLabelText("What stood out?"), "Good coffee but quite noisy.");
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  assert.ok(r.getByLabelText("Caption"));
+  assert.ok(r.getByRole("button", { name: "Copy caption" }));
+  const link = r.getByRole("link", { name: "View business Instagram profile" }) as HTMLAnchorElement;
+  assert.equal(link.href, "https://www.instagram.com/yourbusiness/");
+  assert.ok(r.getByText(/@yourbusiness/));
+  assert.ok(r.getByText("How to share on Instagram"));
+  assert.ok(r.getByText(/Sharing a photo will not automatically fill your caption/));
+  assert.ok(r.getByText(/not the post editor/));
+  assert.ok(r.getByText(/No photos selected here/));
+  assert.equal(r.queryByRole("button", { name: /post|publish/i }), null);
+});
 test("photo preview stays local and is removable without a network upload", async () => {
   const u = userEvent.setup();
   let requests = 0;
@@ -829,6 +872,7 @@ test("mobile native share uses the original selected image and keeps download fa
   try {
     const r = testing.render(<ReviewForm location={loc} local />);
     await u.click(r.getByRole("button", { name: "English" }));
+    await u.click(r.getByRole("button", { name: "Instagram" }));
     await u.click(r.getByText("Add photos (optional)"));
     const original = new window.File(["original-bytes"], "customer-photo.jpg", { type: "image/jpeg" });
     await u.upload(r.getByLabelText(/Add a photo preview/), original);

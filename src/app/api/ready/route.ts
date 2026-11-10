@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     await rows(sql`select 1 as ready`);
+    // Readiness means the code-required schema exists, not only that Neon responds.
+    await rows(sql`select facebook_review_url, instagram_handle from location limit 0`);
     return Response.json(
       { ok: true },
       { headers: { "Cache-Control": "no-store" } },

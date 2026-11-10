@@ -22,7 +22,7 @@ export const generationInput = z
     experience: z.string().trim().max(2000),
     answers: answersSchema.optional(),
     locale: z.enum(locales),
-    platform: z.enum(["google", "xiaohongshu"]),
+    platform: z.enum(["google", "xiaohongshu", "facebook", "instagram"]),
     requestKey: z.string().uuid(),
   })
   .strict()
@@ -35,6 +35,8 @@ export type PublicLocation = {
   name: string;
   address: string;
   google_url: string | null;
+  facebook_review_url?: string | null;
+  instagram_handle?: string | null;
   business_name: string;
   accent: string;
   initials: string;
@@ -89,12 +91,16 @@ export async function generate(
     )[0];
     if (!guest) throw new AppError("SESSION_EXPIRED", 401);
     const loc = (
-      await rows<{ business_id: string }>(
-        sql`select l.business_id from location l join business b on b.id=l.business_id where l.id=${guest.location_id} and l.slug=${input.slug} and l.active=true and b.active=true`,
+      await rows<{ business_id: string; facebook_review_url: string | null }>(
+        sql`select l.business_id, l.facebook_review_url from location l join business b on b.id=l.business_id where l.id=${guest.location_id} and l.slug=${input.slug} and l.active=true and b.active=true`,
         tx,
       )
     )[0];
     if (!loc) throw new AppError("NOT_FOUND", 404);
+    // Never charge a generation attempt for an unavailable Facebook destination.
+    // Check the current location setting inside the transaction, not only the UI.
+    if (input.platform === "facebook" && !loc.facebook_review_url)
+      throw new AppError("FACEBOOK_NOT_CONFIGURED", 422);
     const existing = (
       await rows<{
         input_hash: string;
@@ -293,7 +299,7 @@ export async function writeDraft(input: GenerationInput, businessName: string) {
   }
   return {
     draft: {
-      title: input.platform === "google" ? "" : parsed.data.title,
+      title: input.platform === "xiaohongshu" ? parsed.data.title : "",
       body: parsed.data.body,
       demo: false,
     },

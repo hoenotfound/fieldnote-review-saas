@@ -10,6 +10,8 @@ import {
   requireBusiness,
   requirePlatform,
   googleUrl,
+  facebookReviewUrl,
+  instagramHandle,
   requireOrigin,
   AppError,
   hash,
@@ -20,6 +22,7 @@ import {
   generate,
   sweep,
   finishGuest,
+  publicLocation,
   type GenerationInput,
   writeDraft,
 } from "../src/lib/reviews";
@@ -122,6 +125,109 @@ test("Google links reject script, credentials and lookalike hosts", () => {
   ])
     assert.throws(() => googleUrl(value));
 });
+test("social destinations reject lookalike hosts and unsafe redirect URLs", () => {
+  assert.equal(facebookReviewUrl(null), null);
+  assert.equal(instagramHandle(""), null);
+  assert.equal(instagramHandle("@yourbusiness"), "yourbusiness");
+  assert.ok(facebookReviewUrl("https://www.facebook.com/YourPage/reviews"));
+  assert.ok(facebookReviewUrl("https://www.facebook.com/profile.php?id=123456&sk=reviews"));
+  assert.equal(facebookReviewUrl("https://m.facebook.com/YourPage/?mibextid=abc_123"), "https://www.facebook.com/YourPage/reviews");
+  assert.equal(facebookReviewUrl("https://web.facebook.com/YourPage/reviews/?ref=page_internal"), "https://www.facebook.com/YourPage/reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/100064654155301"), "https://www.facebook.com/100064654155301/reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/pg/YourPage/reviews/"), "https://www.facebook.com/pg/YourPage/reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/p/YourPage-100064654155301/reviews"), "https://www.facebook.com/p/YourPage-100064654155301/reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/profile.php?id=123456&ref=page_internal"), "https://www.facebook.com/profile.php?id=123456&sk=reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/profile.php?sk=reviews&id=123456"), "https://www.facebook.com/profile.php?id=123456&sk=reviews");
+  for (const value of [
+    "https://facebook.com.evil.test/YourPage/reviews",
+    "javascript:alert(1)",
+    "https://x@facebook.com/Page/reviews",
+    "https://www.facebook.com/Page/reviews?next=https://evil.test",
+    "https://www.facebook.com/Page/reviews?ref=https://evil.test",
+    "https://www.facebook.com/Page/reviews?sk=reviews",
+    "https://www.facebook.com/profile.php?id=123&sk=reviews&sk=other",
+    "https://www.facebook.com/profile.php?id=123&id=456",
+    "https://www.facebook.com/l.php?u=https://evil.test",
+    "https://www.facebook.com/groups/123/reviews",
+    "https://www.facebook.com/login",
+  ]) assert.throws(() => facebookReviewUrl(value));
+  for (const value of [
+    "https://instagram.com/yourbusiness",
+    "@name/redirect",
+    "my..brand",
+    "a".repeat(31),
+  ]) assert.throws(() => instagramHandle(value));
+});
+test("both new platforms pass request validation", async () => {
+  const { generationInput } = await import("../src/lib/reviews");
+  for (const platform of ["google", "xiaohongshu", "facebook", "instagram"] as const) {
+    assert.equal(generationInput.safeParse(input({ platform })).success, true);
+  }
+  assert.equal(generationInput.safeParse(input({ platform: "other" as GenerationInput["platform"] })).success, false);
+});
+test("merchant social settings persist and reach only their public location", async () => {
+  const url = facebookReviewUrl("https://m.facebook.com/YourPage/?ref=page_internal");
+  const handle = instagramHandle("@yourbusiness");
+  try {
+    await db.execute(
+      sql`update location set facebook_review_url=${url}, instagram_handle=${handle} where id='a'`,
+    );
+    const location = await publicLocation("a");
+    assert.equal(location?.facebook_review_url, "https://www.facebook.com/YourPage/reviews");
+    assert.equal(location?.instagram_handle, "yourbusiness");
+    assert.equal((await publicLocation("b"))?.facebook_review_url, null);
+  } finally {
+    await db.execute(
+      sql`update location set facebook_review_url=null, instagram_handle=null where id='a'`,
+    );
+  }
+});
+
+test("direct Facebook generation with no Page link rejects before provider or quota usage", async () => {
+  const id = await guest();
+  const attempted = input({ platform: "facebook" });
+  let providerCalls = 0;
+  const provider = async (i: GenerationInput) => {
+    providerCalls++;
+    return fake(i);
+  };
+  const usage = async () => ({
+    business: (await rows<{ used: number; reserved: number }>(
+      sql`select used, reserved from business where id='a'`,
+    ))[0],
+    guest: (await rows<{ attempts: number }>(
+      sql`select attempts from guest_session where id=${id}`,
+    ))[0].attempts,
+    global: (await rows<{ attempts: number }>(
+      sql`select coalesce((select attempts from ai_daily_budget where day=current_date),0) as attempts`,
+    ))[0].attempts,
+    perBusiness: (await rows<{ attempts: number }>(
+      sql`select coalesce((select attempts from business_daily_budget where business_id='a' and day=current_date),0) as attempts`,
+    ))[0].attempts,
+    generations: (await rows<{ count: number }>(
+      sql`select count(*)::int as count from generation where guest_id=${id}`,
+    ))[0].count,
+  });
+  const before = await usage();
+  assert.equal((await publicLocation("a"))?.facebook_review_url, null);
+  await assert.rejects(
+    generate(attempted, id, provider),
+    (e: unknown) => e instanceof AppError && e.code === "FACEBOOK_NOT_CONFIGURED" && e.status === 422,
+  );
+  assert.equal(providerCalls, 0);
+  assert.deepEqual(await usage(), before);
+  // After merchant configuration, that same valid request should work.
+  await db.execute(sql`update location set facebook_review_url='https://www.facebook.com/TestPage/reviews' where id='a'`);
+  try {
+    const draft = await generate(attempted, id, provider);
+    assert.equal(draft.body, attempted.experience);
+    assert.equal(providerCalls, 1);
+    assert.equal((await usage()).business.used, before.business.used + 1);
+  } finally {
+    await db.execute(sql`update location set facebook_review_url=null where id='a'`);
+  }
+});
+
 test("mutations reject absent or foreign origin", () => {
   assert.throws(() =>
     requireOrigin(new Request("http://localhost/api/manage")),
@@ -422,6 +528,47 @@ test("authenticated management and QR endpoints enforce business ownership", asy
     "Kopi",
   );
   assert.deepEqual((await publicLocation("b"))?.questionnaire?.items, []);
+
+  // Exercise the authenticated location-save route, not just direct SQL writes.
+  const locationSave = (
+    businessId: string,
+    facebookReviewUrlValue: string,
+    instagramHandleValue: string,
+  ) => new Request(base + "/api/manage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", origin: base, cookie },
+    body: JSON.stringify({
+      action: "location",
+      businessId,
+      id: "a",
+      name: "Test location A",
+      address: "Fictional address",
+      googleUrl: "",
+      facebookReviewUrl: facebookReviewUrlValue,
+      instagramHandle: instagramHandleValue,
+      active: true,
+    }),
+  });
+  assert.equal(
+    (await POST(locationSave("b", "https://www.facebook.com/YourPage", "@yourbusiness"))).status,
+    404,
+  );
+  assert.equal(
+    (await POST(locationSave("a", "https://m.facebook.com/YourPage/?ref=page_internal", "@yourbusiness"))).status,
+    200,
+  );
+  assert.equal((await publicLocation("a"))?.facebook_review_url, "https://www.facebook.com/YourPage/reviews");
+  assert.equal((await publicLocation("a"))?.instagram_handle, "yourbusiness");
+  assert.equal((await publicLocation("b"))?.facebook_review_url, null);
+  assert.equal((await publicLocation("b"))?.instagram_handle, null);
+  assert.equal(
+    (await POST(locationSave("a", "https://facebook.com.evil.test/YourPage/reviews", "@bad"))).status,
+    400,
+  );
+  assert.equal((await publicLocation("a"))?.facebook_review_url, "https://www.facebook.com/YourPage/reviews");
+  assert.equal((await POST(locationSave("a", "", ""))).status, 200);
+  assert.equal((await publicLocation("a"))?.facebook_review_url, null);
+  assert.equal((await publicLocation("a"))?.instagram_handle, null);
 
   assert.equal(
     (

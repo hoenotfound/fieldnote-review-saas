@@ -9,6 +9,8 @@ import {
   errorResponse,
   AppError,
   googleUrl,
+  facebookReviewUrl,
+  instagramHandle,
 } from "@/lib/security";
 import { getDb, rows, type DB } from "@/lib/db";
 import { sweep } from "@/lib/reviews";
@@ -38,6 +40,8 @@ const schema = z.discriminatedUnion("action", [
       name: z.string().trim().min(2).max(80),
       address: z.string().trim().min(2).max(200),
       googleUrl: z.string().max(500),
+      facebookReviewUrl: z.string().max(500).optional(),
+      instagramHandle: z.string().max(100).optional(),
       active: z.boolean(),
     })
     .strict(),
@@ -121,9 +125,11 @@ export async function POST(req: Request) {
         );
       } else {
         const url = googleUrl(data.googleUrl || null);
+        const facebookUrl = facebookReviewUrl(data.facebookReviewUrl || null);
+        const instagram = instagramHandle(data.instagramHandle || null);
         if (data.id) {
           const done = await rows(
-            sql`update location set name=${data.name},address=${data.address},google_url=${url},active=${data.active} where id=${data.id} and business_id=${data.businessId} returning id`,
+            sql`update location set name=${data.name},address=${data.address},google_url=${url},facebook_review_url=${facebookUrl},instagram_handle=${instagram},active=${data.active} where id=${data.id} and business_id=${data.businessId} returning id`,
           );
           if (!done.length) throw new AppError("NOT_FOUND", 404);
         } else {
@@ -136,7 +142,7 @@ export async function POST(req: Request) {
               .replace(/^-|-$/g, "")
               .slice(0, 45) || "location";
           await db.execute(
-            sql`insert into location(id,business_id,slug,qr_code,name,address,google_url,active) values(${id},${data.businessId},${slug + "-" + suffix},${randomBytes(12).toString("hex")},${data.name},${data.address},${url},${data.active})`,
+            sql`insert into location(id,business_id,slug,qr_code,name,address,google_url,facebook_review_url,instagram_handle,active) values(${id},${data.businessId},${slug + "-" + suffix},${randomBytes(12).toString("hex")},${data.name},${data.address},${url},${facebookUrl},${instagram},${data.active})`,
           );
         }
       }

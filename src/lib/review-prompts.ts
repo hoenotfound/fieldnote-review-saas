@@ -2,7 +2,7 @@
  * Personal experience writing only. No platform can promise acceptance:
  * author review, photos and account context matter too.
  */
-export type ReviewPlatform = "google" | "xiaohongshu";
+export type ReviewPlatform = "google" | "xiaohongshu" | "facebook" | "instagram";
 
 export const SHARED_REVIEW_RULES = [
   "Help the customer express their own firsthand experience, not a business advertisement.",
@@ -36,9 +36,29 @@ export const XIAOHONGSHU_REVIEW_RULES = [
   "Customer must check the final post and disclose AI assistance in Xiaohongshu when applicable.",
 ].join(" ");
 
+export const FACEBOOK_REVIEW_RULES = [
+  "Facebook Page Recommendation: use one concise first-person paragraph with no title.",
+  "Describe the customer's own experience, including mixed or negative observations.",
+  "Do not assume the customer recommends the business or ask them to choose Yes; Facebook lets the customer decide Yes or No themselves.",
+  "Avoid promotional slogans, hashtags and invented endorsements.",
+].join(" ");
+
+export const INSTAGRAM_REVIEW_RULES = [
+  "Instagram: draft a natural, short first-person social caption with no separate title.",
+  "Use only the customer's own observations, with concise paragraphs when helpful.",
+  "Do not invent tags, handles, hashtags, location tags, endorsements or calls to action.",
+  "Preserve criticism; never assume the customer wants to promote or recommend the business.",
+  "The customer chooses their own photos, tags and final post or Story in Instagram.",
+].join(" ");
+
 export function reviewSystemPrompt(platform: ReviewPlatform) {
-  return SHARED_REVIEW_RULES + "\n\n" +
-    (platform === "xiaohongshu" ? XIAOHONGSHU_REVIEW_RULES : GOOGLE_REVIEW_RULES);
+  const rules: Record<ReviewPlatform, string> = {
+    google: GOOGLE_REVIEW_RULES,
+    xiaohongshu: XIAOHONGSHU_REVIEW_RULES,
+    facebook: FACEBOOK_REVIEW_RULES,
+    instagram: INSTAGRAM_REVIEW_RULES,
+  };
+  return SHARED_REVIEW_RULES + "\n\n" + rules[platform];
 }
 
 export type XhsDraftRisk = {
