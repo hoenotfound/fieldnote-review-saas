@@ -953,6 +953,32 @@ export function ReviewForm({
                     {t.copyTitle}
                   </button>
                 )}
+                {platform === "facebook" && location.facebook_review_url && (
+                  <a
+                    className="btn secondary"
+                    href={draft.body.trim() && !busy ? location.facebook_review_url : undefined}
+                    aria-disabled={!draft.body.trim() || busy}
+                    onClick={(e) => { if (!draft.body.trim() || busy) e.preventDefault(); }}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink size={17} />
+                    {t.openFacebook}
+                  </a>
+                )}
+                {platform === "instagram" && (
+                  <a
+                    className="btn secondary"
+                    href={draft.body.trim() && !busy ? instagramUrl : undefined}
+                    aria-disabled={!draft.body.trim() || busy}
+                    onClick={(e) => { if (!draft.body.trim() || busy) e.preventDefault(); }}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink size={17} />
+                    {t.openInstagram}
+                  </a>
+                )}
                 {platform === "google" && location.google_url && (
                   <a
                     className="btn secondary"
@@ -977,10 +1003,15 @@ export function ReviewForm({
               <p className="handoff-help">
                 {platform === "xiaohongshu"
                   ? t.xhsHelp
-                  : location.google_url
-                    ? t.draftNotice
-                    : t.noLink}
+                  : platform === "facebook"
+                    ? location.facebook_review_url ? t.facebookHelp : t.noFacebookLink
+                    : platform === "instagram"
+                      ? t.instagramHelp
+                      : location.google_url ? t.draftNotice : t.noLink}
               </p>
+              {platform === "instagram" && location.instagram_handle && (
+                <p className="handoff-help">{t.instagramTag} @{location.instagram_handle}</p>
+              )}
               <div className="draft-tools">
                 <button
                   className="btn text"
