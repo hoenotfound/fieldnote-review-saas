@@ -29,8 +29,6 @@ import {
   Globe2,
   Sparkles,
   X,
-  Facebook,
-  Instagram,
 } from "lucide-react";
 import {
   languageNames,
@@ -746,7 +744,7 @@ export function ReviewForm({
                     }}
                   >
                     <span className="destination-icon facebook-icon" aria-hidden="true">
-                      <Facebook size={24} />
+                      <img src="/brands/facebook.svg" alt="" width={32} height={32} />
                     </span>
                     <span>{t.facebook}</span>
                     {platform === "facebook" && <Check size={16} />}
@@ -761,7 +759,7 @@ export function ReviewForm({
                     }}
                   >
                     <span className="destination-icon instagram-icon" aria-hidden="true">
-                      <Instagram size={24} />
+                      <img src="/brands/instagram.svg" alt="" width={32} height={32} />
                     </span>
                     <span>{t.instagram}</span>
                     {platform === "instagram" && <Check size={16} />}
