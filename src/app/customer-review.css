@@ -531,6 +531,8 @@
 .red-icon {
   background: #fff;
 }
+.facebook-icon { background: #edf3ff; color: #1877f2; }
+.instagram-icon { background: #fff0f6; color: #b82776; }
 .destination-icon img {
   display: block;
   width: 100%;
