@@ -1,11 +1,11 @@
 # Fieldnote isolated Netlify Free trial
 
-**Status:** Trial code and independent test database are prepared. This is NOT a live Netlify deployment. Production Fieldnote remains on Render and no live QR codes are redirected.
+**Status (10 November 2026):** The HD Review site is live on Netlify from `test/netlify-fieldnote-trial-20261109` at commit `ae44be9`. The Netlify application still uses a deliberately isolated Neon trial database and trial marker. Its successful deployment does not mean production customer data have been migrated.
 
 ## Resources (do not confuse with production)
 
 - GitHub repository: `hoenotfound/fieldnote-review-saas`
-- Netlify source branch: `test/netlify-fieldnote-trial-20261109` (do not choose `main`)
+- Netlify source branch: `test/netlify-fieldnote-trial-20261109` until a controlled switch to `main`; both branches must contain the same tested application code before changing the Netlify project setting.
 - Neon trial project: `fieldnote-netlify-trial` (`morning-cloud-02172364`), Singapore, PostgreSQL 17
 - Neon trial database: `fieldnote_trial`, original role `fieldnote_trial_app`
 - Trial-only marker in `review_app_meta`: `fieldnote-netlify-trial-morning-cloud-02172364`
@@ -16,7 +16,7 @@
 ## 1. Create the Netlify site
 
 1. Log in to Netlify. Choose **Add new project > Import an existing project** and connect your GitHub account.
-2. Select `hoenotfound/fieldnote-review-saas` and set its **production branch** to `test/netlify-fieldnote-trial-20261109`. Keep the trial as a **separate Netlify site** and leave `main` connected to Render.
+2. Select `hoenotfound/fieldnote-review-saas`. Existing site `fieldnote-review.netlify.app` currently uses the `test/netlify-fieldnote-trial-20261109` production branch. Keep the isolated site database and verify the Render deployment connection before syncing the application to `main`.
 3. Set the build command to `npm run netlify:build` and publish directory to `.next` (from `netlify.toml`); Node 24.
 4. Note the exact `https://YOUR-SITE.netlify.app` URL. Add the environment variables below **before publishing**. If the first deploy fails because the variables aren't configured yet, configure them and redeploy. Keep automatic deploys off after the first successful trial to save Free credits.
 
@@ -62,7 +62,7 @@ The demo location deliberately has **no real Google review destination**. Add a 
 
 ## 4. Release boundaries and rollback
 
-- This Netlify trial branch must **not be merged to `main`** until after a successful trial.
+- Before merging trial application changes into `main`, verify whether any Render service auto-deploys from `main`. The Netlify build and database guards were designed for the isolated Netlify setup; publishing changes to Render must be considered separately.
 - Production Render environment variables, database, domain, and QR links remain unchanged.
 - A failed Netlify deploy cannot disable Render. Remove the Netlify site/project to stop further hosting usage, and decommission its isolated Neon project later if no longer needed.
 - No live customer data should be entered on this trial URL.
@@ -74,3 +74,14 @@ The demo location deliberately has **no real Google review destination**. Add a 
 - Netlify function limits/region: https://docs.netlify.com/build/functions/configuration/
 - Netlify environment variables: https://docs.netlify.com/build/functions/environment-variables/
 - Netlify scheduled functions: https://docs.netlify.com/build/functions/scheduled-functions/
+
+## 5. Controlled migration of the Netlify production branch to `main`
+
+1. Ensure the latest working Netlify commit is incorporated into `main` through a reviewed, successful PR. **Do not switch Netlify to `main` while it still contains the older implementation.**
+2. Confirm that any other hosting service connected to GitHub `main`, particularly the earlier Render project, will not receive an unintended production deployment. Disable its auto-deploy if no longer needed or deliberately approve the additional release.
+3. In the Netlify project, check Environment variables. Confirm that the existing **Production** context exposes `HOSTING_PROVIDER=netlify`, `APP_MODE=pilot`, `APP_ORIGIN=https://fieldnote-review.netlify.app`, `REVIEW_DATABASE_APPROVED=yes`, `NETLIFY_TRIAL_MARKER`, the **isolated** `FIELDNOTE_TRIAL_DATABASE_URL` for Builds and Functions, and required auth/Gemini/Turnstile variables. Check whether any secret is restricted specifically to the old trial branch. Never copy credentials into GitHub.
+4. In Netlify, go to **Project configuration > Developer settings > Continuous deployment > Branches and deploy contexts > Configure**, change the production branch to `main` and save. Keep the same Netlify project and public hostname. Make a production deploy from the updated `main` branch if needed.
+5. Confirm the deploy is **Published** from `main`, the source SHA is as expected, all four languages work, AI generates correctly, the dashboard signs in, and the isolated database marker check passes. Existing QR routes remain unchanged.
+6. Keep the old trial branch as a rollback reference until these checks pass. If the new branch fails, return Netlify's production branch selection to the previously working trial branch and redeploy. Do not delete either database.
+
+**Boundary:** Changing a Git production branch does **not** turn trial Neon data into a commercial production database, rename the `.netlify.app` hostname, or replace demo business details. Those require separate work and explicit approval.
