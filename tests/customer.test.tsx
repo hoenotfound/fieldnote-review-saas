@@ -38,7 +38,7 @@ afterEach(() => {
   testing.cleanup();
   sessionStorage.clear();
 });
-test("manual draft requires confirmation; editing resets approval", async () => {
+test("manual draft copies without approval checkbox and stays available after edits", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
   await u.click(r.getByRole("button", { name: "English" }));
@@ -47,18 +47,12 @@ test("manual draft requires confirmation; editing resets approval", async () => 
     "The soup was tasty but the wait was long.",
   );
   await u.click(r.getByRole("button", { name: "Write without AI" }));
-  const copy = r.getByRole("button", {
-    name: "Copy review",
-  }) as HTMLButtonElement;
-  assert.equal(copy.disabled, true);
-  await u.click(
-    r.getByLabelText(
-      "I have checked this version and it accurately reflects my own experience.",
-    ),
-  );
+  const copy = r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement;
   assert.equal(copy.disabled, false);
+  assert.equal(r.queryByRole("checkbox"), null);
+  assert.ok(r.getByText(/Check and edit anything/));
   await u.type(r.getByLabelText("Review"), " I would prefer faster service.");
-  assert.equal(copy.disabled, true);
+  assert.equal(copy.disabled, false);
 });
 test("switching interface language preserves original text and shows translated controls", async () => {
   const u = userEvent.setup();
@@ -90,7 +84,6 @@ test("Netlify trial identifies a failed guest session without exposing response 
   />);
   await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("What stood out?"), "The staff listened carefully and the visit was pleasant.");
-  await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByText(/Trial diagnostics: guest session · HTTP 502 · INVALID_RESPONSE/)),
@@ -108,7 +101,6 @@ test("Netlify trial shows a safe API error code, but ordinary businesses do not"
   const r = testing.render(<ReviewForm location={{ ...loc, business_id: "netlify-trial-only", slug: "netlify-demo" }} local={false} />);
   await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("What stood out?"), "The staff listened carefully and the visit was pleasant.");
-  await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByText(/Trial diagnostics: guest session · HTTP 403 · ORIGIN_REJECTED/)),
@@ -128,7 +120,6 @@ test("one generation request returns editable draft with explicit simulated labe
   const r = testing.render(<ReviewForm location={loc} local />);
   await u.click(r.getByRole("button", { name: "English" }));
   await u.click(r.getByRole("button", { name: "Try a sample" }));
-  await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByText(/Local demo: no AI call or translation/)),
@@ -141,7 +132,7 @@ test("one generation request returns editable draft with explicit simulated labe
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
-    true,
+    false,
   );
 });
 test("Xiaohongshu manual route has separate title and review with no auto-post action", async () => {
@@ -189,7 +180,7 @@ test("photo preview stays local and is removable without a network upload", asyn
   }
 });
 
-test("questionnaire starts neutral, supports feedback-only generation and clears stale approval", async () => {
+test("questionnaire starts neutral, supports feedback-only generation and immediate sharing", async () => {
   const u = userEvent.setup();
   let calls = 0;
   let payload: any;
@@ -210,7 +201,6 @@ test("questionnaire starts neutral, supports feedback-only generation and clears
     testing.within(group).queryAllByRole("button", { pressed: true }).length,
     0,
   );
-  await u.click(r.getByLabelText(/Use AI to help/));
   const button = r.getByRole("button", {
     name: "Generate my review draft",
   }) as HTMLButtonElement;
@@ -224,7 +214,6 @@ test("questionnaire starts neutral, supports feedback-only generation and clears
   assert.equal(calls, 1);
   assert.equal(payload.experience, "");
   assert.deepEqual(payload.answers.ratings, { service: "poor" });
-  await u.click(r.getByLabelText(/I have checked this version/));
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
@@ -431,7 +420,6 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
     (r.getByLabelText("Review") as HTMLTextAreaElement).value,
     "The wait was long",
   );
-  await u.click(r.getByLabelText(/I have checked this version/));
   await u.click(r.getByRole("button", { name: "Edit my answers" }));
   assert.ok(
     r.getByRole("button", { name: "The wait was long", pressed: true }),
@@ -442,11 +430,11 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
-    true,
+    false,
   );
 });
 
-test("reloading restores the draft but never restores export approval", async () => {
+test("reloading restores the draft and sharing remains available without approval checkbox", async () => {
   const u = userEvent.setup();
   let r = testing.render(<ReviewForm location={loc} local />);
   await u.click(r.getByRole("button", { name: "English" }));
@@ -455,7 +443,6 @@ test("reloading restores the draft but never restores export approval", async ()
     "Helpful staff and a quiet room.",
   );
   await u.click(r.getByRole("button", { name: "Write without AI" }));
-  await u.click(r.getByLabelText(/I have checked this version/));
   r.unmount();
   r = testing.render(<ReviewForm location={loc} local />);
   await testing.waitFor(() =>
@@ -467,7 +454,7 @@ test("reloading restores the draft but never restores export approval", async ()
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
-    true,
+    false,
   );
 });
 
@@ -538,8 +525,7 @@ test("kiosk inactivity resets the form, and a delayed AI response cannot revive 
     const r = testing.render(<ReviewForm location={loc} local />);
     await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "Private details to clear");
-    await u.click(r.getByLabelText(/Use AI to help/));
-    await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+      await u.click(r.getByRole("button", { name: "Generate my review draft" }));
     await generationStarted;
     time += 5 * 60 * 1000 + 1;
     window.dispatchEvent(new window.Event("focus"));
@@ -592,7 +578,6 @@ test("AI rate threshold presents a human check and leaves manual writing enabled
   );
   await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("What stood out?"), "A short honest experience.");
-  await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByRole("group", { name: /quick verification/ })),
@@ -638,8 +623,7 @@ test("completed human challenge token is supplied for one retry", async () => {
     );
     await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "A reasonable experience.");
-    await u.click(r.getByLabelText(/Use AI to help/));
-    await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+      await u.click(r.getByRole("button", { name: "Generate my review draft" }));
     await testing.waitFor(() =>
       assert.ok(r.getByRole("group", { name: /quick verification/ })),
     );
@@ -761,6 +745,5 @@ test("Xiaohongshu highlights possibly risky customer wording without blocking ho
   await u.click(r.getByRole("button", { name: "Write without AI" }));
   assert.ok(r.getByRole("status").textContent?.includes("check this draft"));
   assert.ok(r.getByText(/AI-content disclosure where applicable/));
-  await u.click(r.getByLabelText(/I have checked this version/));
   assert.equal((r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement).disabled, false);
 });
