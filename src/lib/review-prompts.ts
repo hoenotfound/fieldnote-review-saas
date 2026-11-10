@@ -51,21 +51,55 @@ export const INSTAGRAM_REVIEW_RULES = [
   "The customer chooses their own photos, tags and final post or Story in Instagram.",
 ].join(" ");
 
-/** Catch numeric monetary amounts added by AI that were not present in the customer's own words.
- * Normalize grouped digits (RM 1,288.00 and RM1288 refer to the same written amount).
- * Plain numbers such as treatment names and minutes are not treated as prices.
+/**
+ * Prices from an optional spending field must not enter a review. Prices the
+ * customer actually typed may be preserved, including "paid 300" or RM1.2k.
+ * This check is intentionally conservative about AI-invented currency values.
  */
+const AMOUNT = String.raw`(?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)(?:k)?`;
+const PREFIXED_MONEY = new RegExp(
+  String.raw`(?:\b(?:RM|MYR|RMB|USD|SGD|AUD|GBP|BND)\s*|S\$\s*|[$€£¥]\s*)` +
+    "(" + AMOUNT + String.raw`)(?![\p{L}\p{N}])`, "giu",
+);
+const SUFFIXED_MONEY = new RegExp(
+  "(" + AMOUNT + String.raw`)\s*(?:ringgit|dollars?|dolar|yuan|元|块|塊|令吉|MYR|RM)(?![\p{L}\p{N}])`, "giu",
+);
+const PAID_MONEY = new RegExp(
+  String.raw`(?:\b(?:paid|pay|spent|spend|costs?|priced?|charged?|billed|fees?|bayar|dibayar|harga|jumlah|kos|caj)\b|花了|付了|消费了|消費了|价格|價錢|收费|收費)\s*(?:at\s*|about\s*|around\s*|of\s*|a\s*|(?:RM|MYR)\s*)?` +
+    "(" + AMOUNT + String.raw`)(?![\p{L}\p{N}])`, "giu",
+);
+const WORD_PRICES = /(?:\b(?:(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|and|satu|dua|tiga|empat|lima|enam|tujuh|lapan|sembilan|sepuluh|sebelas|seratus|seribu|ratus|ribu|puluh)(?:[\s-]+)){1,12}(?:ringgit|dollars?|dolar|yuan)\b)|[零〇一二两兩三四五六七八九十百千万萬亿億]{1,16}(?:元|块|塊|令吉)/giu;
+
+function moneyAmounts(text: string) {
+  const prices = new Set<number>();
+  for (const pattern of [PREFIXED_MONEY, SUFFIXED_MONEY, PAID_MONEY]) {
+    for (const match of text.matchAll(pattern)) {
+      const raw = match[1];
+      const kilo = /k$/i.test(raw);
+      const number = Number(raw.replace(/,/g, "").replace(/k$/i, ""));
+      if (Number.isFinite(number))
+        prices.add(Math.round(number * (kilo ? 1000 : 1) * 100) / 100);
+    }
+  }
+  return prices;
+}
+
+function priceWords(text: string) {
+  return [...text.normalize("NFKC").toLowerCase().matchAll(WORD_PRICES)]
+    .map((match) => match[0].replace(/[\s-]+/g, " ").trim());
+}
+
 export function containsUnstatedPrice(
   draft: { title: string; body: string },
   customerText: string,
 ) {
-  const money = /(?:\b(?:RM|MYR|USD|SGD|AUD|GBP)\s*|[$€£¥]\s*)(\d[\d,.]*)|\b(\d[\d,.]*)\s*(?:ringgit|dollars?|yuan|元|块|塊)(?![\p{L}\p{N}])/giu;
-  const values = (text: string) => [...text.matchAll(money)]
-    .map((match) => Number((match[1] || match[2]).replace(/,/g, "")))
-    .filter((amount) => Number.isFinite(amount));
-  const customerPrices = new Set(values(customerText));
-  return values(draft.title + "\n" + draft.body)
-    .some((amount) => !customerPrices.has(amount));
+  const authored = customerText.normalize("NFKC");
+  const proposed = (draft.title + "\n" + draft.body).normalize("NFKC");
+  const amounts = moneyAmounts(authored);
+  if ([...moneyAmounts(proposed)].some((amount) => !amounts.has(amount)))
+    return true;
+  const authorWords = new Set(priceWords(authored));
+  return priceWords(proposed).some((value) => !authorWords.has(value));
 }
 
 export function reviewSystemPrompt(platform: ReviewPlatform) {

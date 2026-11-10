@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { sql } from "drizzle-orm";
 import { rows } from "@/lib/db";
-import { publicLocation } from "@/lib/reviews";
+
 import { manualSpendingInput, recordManualSpending } from "@/lib/spending";
 import { AppError, errorResponse, hash, requireOrigin, readLimitedJson } from "@/lib/security";
 
@@ -13,7 +13,10 @@ export async function POST(req: Request) {
     const parsed = manualSpendingInput.safeParse(await readLimitedJson(req, 1000));
     if (!parsed.success) throw new AppError("INVALID_INPUT", 422);
     const input = parsed.data;
-    const loc = await publicLocation(input.slug);
+    // Removal remains possible after a merchant disables its Page.
+    const loc = (await rows<{ id: string }>(
+      sql`select id from location where slug=${input.slug}`,
+    ))[0];
     if (!loc) throw new AppError("NOT_FOUND", 404);
     const token = (await cookies()).get("rv_guest_" + loc.id)?.value;
     if (!token) throw new AppError("SESSION_EXPIRED", 401);
