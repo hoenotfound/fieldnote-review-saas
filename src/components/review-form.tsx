@@ -345,7 +345,7 @@ export function ReviewForm({
       });
       if (!response.ok) throw new Error("SPENDING_UNAVAILABLE");
       if (epoch === requestEpoch.current && manualSpendingReported.current === consent)
-        setMessage(consent ? feedback.manualSpendSaved : feedback.manualSpendingRemoved);
+        setMessage(consent ? feedback.manualSpendSaved : translations[locale].manualSpendingRemoved);
     }).catch(() => {
       // A failed withdrawal may leave an amount on the server. Keep a retry
       // control available rather than claiming the amount was removed.
@@ -354,7 +354,7 @@ export function ReviewForm({
         setHasReportedManualSpend(true);
       }
       if (epoch === requestEpoch.current)
-        setMessage(consent ? feedback.manualSpendFailed : feedback.manualSpendingRemovalFailed);
+        setMessage(consent ? feedback.manualSpendFailed : translations[locale].manualSpendingRemovalFailed);
     });
   }
   function manual() {
