@@ -2,9 +2,19 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   reviewSystemPrompt, SHARED_REVIEW_RULES, GOOGLE_REVIEW_RULES,
-  XIAOHONGSHU_REVIEW_RULES, FACEBOOK_REVIEW_RULES, INSTAGRAM_REVIEW_RULES, xiaohongshuDraftRisk,
+  XIAOHONGSHU_REVIEW_RULES, FACEBOOK_REVIEW_RULES, INSTAGRAM_REVIEW_RULES, xiaohongshuDraftRisk, containsUnstatedPrice,
 } from "../src/lib/review-prompts";
 import { errorText, translations } from "../src/lib/i18n";
+
+test("customer-authored prices remain allowed but newly inferred amounts are blocked", () => {
+  const original = "I paid RM 1,288 for the facial; it felt expensive.";
+  assert.equal(containsUnstatedPrice({ title: "", body: "I paid RM1288 and it was expensive." }, original), false);
+  assert.equal(containsUnstatedPrice({ title: "RM999 special", body: "A nice visit." }, original), true);
+  assert.equal(containsUnstatedPrice({ title: "", body: "I paid RM400." }, "The wait was 20 minutes."), true);
+  assert.equal(containsUnstatedPrice({ title: "", body: "Excellent value for money." }, ""), false);
+  for (const locale of ["en","zh-CN","zh-TW","ms"] as const)
+    assert.ok(errorText("UNSTATED_PRICE", translations[locale]).length > 10);
+});
 
 test("shared factual rules with only the selected platform writing guidance", () => {
   const google = reviewSystemPrompt("google");

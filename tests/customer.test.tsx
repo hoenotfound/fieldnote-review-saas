@@ -54,6 +54,48 @@ test("manual draft copies without approval checkbox and stays available after ed
   await u.type(r.getByLabelText("Review"), " I would prefer faster service.");
   assert.equal(copy.disabled, false);
 });
+test("manual written price is preserved and opted-in spending sends no review content", async () => {
+  const requests: Array<{ url: string; body: any }> = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url: String(url), body: JSON.parse(String(init?.body)) });
+    return Response.json({ ok: true });
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.type(r.getByLabelText("Amount spent (RM)"), "75.50");
+  await u.type(r.getByLabelText("What stood out?"), "I paid RM1288 for the facial and it felt expensive.");
+  const consent = r.getByRole("checkbox", { name: /Share my spending amount/ });
+  assert.equal((consent as HTMLInputElement).checked, false);
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  const manualText = (r.getByLabelText("Review") as HTMLTextAreaElement).value;
+  assert.match(manualText, /I paid RM1288/);
+  assert.doesNotMatch(manualText, /RM 75.50/);
+  assert.equal(requests.length, 0);
+  await u.click(r.getByRole("button", { name: "Edit my answers" }));
+  await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  await testing.waitFor(() => assert.equal(requests.length, 2));
+  assert.deepEqual(requests.map(x => x.url), ["/api/guest", "/api/spending"]);
+  assert.deepEqual(requests[1].body, { slug: loc.slug, spend: 75.5, consent: true });
+  assert.equal(JSON.stringify(requests[1].body).includes("facial"), false);
+  await testing.waitFor(() => assert.ok(r.getByText(/recorded for private statistics/)));
+});
+
+test("manual review remains usable if optional spending submission fails", async () => {
+  globalThis.fetch = async () => { throw new Error("offline"); };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.type(r.getByLabelText("Amount spent (RM)"), "120");
+  await u.type(r.getByLabelText("What stood out?"), "The treatment was pleasant.");
+  await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  assert.ok(r.getByLabelText("Review"));
+  await testing.waitFor(() => assert.ok(r.getByText(/could not be saved/)));
+  assert.equal((r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement).disabled, false);
+});
+
 test("switching interface language preserves original text and shows translated controls", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
