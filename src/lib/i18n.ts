@@ -62,6 +62,7 @@ const en = {
   count: "characters",
   clear: "Clear",
   aiUnavailable: "AI is unavailable. You can still use your own wording.",
+  draftReviewRequired: "The AI draft may not meet Xiaohongshu content rules. Your answers are unchanged. Please use your own wording instead; nothing was posted.",
   quota:
     "This business has reached its AI allowance. You can still write and share manually.",
   limit:
@@ -129,6 +130,7 @@ const cn: Copy = {
   count: "字符",
   clear: "清除",
   aiUnavailable: "AI 暂时无法使用。你仍可使用自己的文字。",
+  draftReviewRequired: "AI 草稿可能不符合小红书内容规范。你的原始回答已保留，请使用自己的文字；系统没有发布任何内容。",
   quota: "此商家的 AI 次数已用完。你仍可手动撰写和分享。",
   limit: "已达到生成次数上限。请使用或修改现有文字。",
   busy: "请求正在处理中，请稍候。",
@@ -189,6 +191,7 @@ const tw: Copy = {
   count: "字元",
   clear: "清除",
   aiUnavailable: "AI 暫時無法使用。你仍可使用自己的文字。",
+  draftReviewRequired: "AI 草稿可能不符合小紅書內容規範。你的原始回答已保留，請使用自己的文字；系統沒有發布任何內容。",
   quota: "此商家的 AI 次數已用完。你仍可手動撰寫和分享。",
   limit: "已達到生成次數上限。請使用或修改現有文字。",
   busy: "請求正在處理中，請稍候。",
@@ -260,6 +263,7 @@ const ms: Copy = {
   clear: "Padam",
   aiUnavailable:
     "AI tidak tersedia. Anda masih boleh menggunakan ayat sendiri.",
+  draftReviewRequired: "Draf AI mungkin tidak memenuhi peraturan Xiaohongshu. Jawapan asal anda kekal. Sila gunakan ayat sendiri; tiada kandungan disiarkan.",
   quota:
     "Perniagaan ini telah mencapai had AI. Anda masih boleh menulis dan berkongsi secara manual.",
   limit:
@@ -293,6 +297,7 @@ export function errorText(code: string, t: Copy) {
   if (["ALREADY_RUNNING", "BUSY"].includes(code)) return t.busy;
   if (code === "SESSION_EXPIRED") return t.expired;
   if (code === "SUBSCRIPTION_EXPIRED") return t.subscription;
+  if (code === "DRAFT_REVIEW_REQUIRED") return t.draftReviewRequired;
   if (["MORE_DETAIL", "INVALID_INPUT"].includes(code)) return t.more;
   if (
     ["AI_UNAVAILABLE", "AI_NOT_CONFIGURED", "INVALID_AI_OUTPUT"].includes(code)
