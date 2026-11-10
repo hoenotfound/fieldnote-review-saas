@@ -544,7 +544,7 @@ test("kiosk inactivity resets the form, and a delayed AI response cannot revive 
     time += 5 * 60 * 1000 + 1;
     window.dispatchEvent(new window.Event("focus"));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
+      assert.ok(r.getByRole("heading", { name: "Choose your language" })),
     );
     release(Response.json({ title: "", body: "Private details", demo: false }));
     await new Promise<void>(resolve => setTimeout(resolve, 0));
@@ -572,7 +572,7 @@ test("first kiosk tap after a suspended interval clears the previous visitor", a
     time += 5 * 60 * 1000 + 1;
     window.dispatchEvent(new window.Event("pointerdown"));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
+      assert.ok(r.getByRole("heading", { name: "Choose your language" })),
     );
     assert.equal(r.queryByLabelText("Review"), null);
   } finally {
@@ -679,7 +679,7 @@ test("first expired kiosk click cannot turn an old answer into a new manual draf
     time += 5 * 60 * 1000 + 1;
     manual.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
+      assert.ok(r.getByRole("heading", { name: "Choose your language" })),
     );
     assert.equal(r.queryByLabelText("Review"), null);
     assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
