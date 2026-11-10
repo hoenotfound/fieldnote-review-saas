@@ -129,3 +129,63 @@ test("ambiguous sale mentions are warned but direct promotions and guaranteed ou
   for (const body of ["立即预约这个优惠", "微信号：abcdef", "永久不反弹"])
     assert.equal(xiaohongshuDraftRisk({ title: "体验", body })?.severity, "block", body);
 });
+
+test("staff pressure and quoted solicitations receive a warning, not an automatic rejection", () => {
+  for (const body of [
+    "前台让我加微信才能投诉，我觉得很烦。",
+    "工作人员叫我立即预约，我很不喜欢这种做法。",
+    "The receptionist asked me to DM me for details, which felt uncomfortable.",
+    "Staff told me to contact me on WhatsApp; I refused.",
+  ]) {
+    const risk = xiaohongshuDraftRisk({ title: "My honest experience", body });
+    assert.equal(risk?.severity, "warn", body);
+  }
+});
+
+test("promotional instructions remain blocked without a genuine reported complaint", () => {
+  for (const body of [
+    "加我微信领取优惠。",
+    "请私信我了解详情。",
+    "立即预约这个优惠。",
+    "销售推荐很不错，快来加微信。",
+    "Book now for a limited time offer.",
+  ])
+    assert.equal(xiaohongshuDraftRisk({ title: "体验", body })?.severity, "block", body);
+});
+
+test("an unrelated but/however/但 does not downgrade medical guarantees", () => {
+  for (const body of [
+    "这个疗程100%有效，但价格贵。",
+    "这个疗程保证疗效，但停车方便。",
+    "100%有效，不过员工不太友善。",
+    "They guarantee results, but parking is difficult.",
+    "No side effects, however the service is slow.",
+    "100% berkesan, tapi mahal.",
+  ])
+    assert.deepEqual(
+      xiaohongshuDraftRisk({ title: "体验", body }),
+      { severity: "block", category: "claim" }, body,
+    );
+});
+
+test("explicit disagreement with a guarantee remains a warning", () => {
+  for (const body of [
+    "医生说零风险，但我不认同这个说法。",
+    "他们保证疗效，但我没有看到效果。",
+    "They said there were no side effects, but I disagree.",
+    "广告写100%有效，我觉得这个说法很夸大。",
+  ])
+    assert.deepEqual(
+      xiaohongshuDraftRisk({ title: "真实经历", body }),
+      { severity: "warn", category: "claim" }, body,
+    );
+});
+
+test("a reported complaint must not hide a separate direct solicitation or guarantee", () => {
+  const cases = [
+    "前台让我加微信才能投诉，我觉得很烦。加我微信领取优惠！",
+    "医生说零风险，但我不认同。这个疗程100%有效。",
+  ];
+  for (const body of cases)
+    assert.equal(xiaohongshuDraftRisk({ title: "My experience", body })?.severity, "block", body);
+});
