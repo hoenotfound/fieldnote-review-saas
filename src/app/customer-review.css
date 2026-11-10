@@ -553,8 +553,12 @@
   margin: 1px 0 0;
   accent-color: var(--accent);
 }
-.consent-check {
-  padding: 4px 0 16px;
+.ai-use-note {
+  color: #506376;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 10px;
+  padding: 0 2px;
 }
 .empty-guidance {
   font-size: 14px;
@@ -597,16 +601,74 @@
   color: #506376;
   margin-top: 9px;
 }
-.confirmation-box {
-  background: #f5f8fa;
+.review-reminder {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #506376;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 19px 0 14px;
+}
+.review-reminder svg {
+  flex: none;
+  margin-top: 2px;
+  color: #176b78;
+}
+.review-photo-heading h2 {
+  color: #202b50;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.review-photo-heading p {
+  color: #506376;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+.review-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
+  gap: 10px;
+}
+.review-photo-card {
+  min-width: 0;
+  overflow: hidden;
   border: 1px solid #dce5eb;
   border-radius: 12px;
-  padding: 16px;
-  margin: 22px 0 17px;
+  background: #fff;
 }
-.confirmation-box.confirmed {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 5%, #fff);
+.review-photo-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+.review-photo-card .photo-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  width: 100%;
+  padding: 9px 8px;
+  border-top: 1px solid #dce5eb;
+  background: #f2f8f9;
+  color: #176b78;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+.review-photo-card .photo-download svg { flex: none; }
+@media (hover: hover) {
+  .review-photo-card .photo-download:hover { background: #e3f1f2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-photo-card .photo-download { transition: none; }
 }
 .share-actions {
   display: flex;

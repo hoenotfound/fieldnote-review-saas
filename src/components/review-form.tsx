@@ -18,6 +18,7 @@ import {
   ArrowRight,
   ImagePlus,
   ShieldCheck,
+  Download,
   Check,
   Copy,
   LoaderCircle,
@@ -60,10 +61,8 @@ export function ReviewForm({
   const q = questionnaireCopy[locale];
   const c = customerCopy[locale];
   const validAnswers = answersSchema.safeParse(answers).success;
-  const [consent, setConsent] = useState(false);
   const [draftLanguage, setDraftLanguage] = useState<Locale>("en");
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [message, setMessage] = useState("");
@@ -186,7 +185,6 @@ export function ReviewForm({
   function invalidate() {
     setChallengeToken("");
     setChallengeNonce((n) => n + 1);
-    setConfirmed(false);
     pendingKey.current = null;
     setDraft(null);
     setError("");
@@ -195,7 +193,6 @@ export function ReviewForm({
   function edit(value: Partial<Draft>) {
     if (kioskExpired.current) return;
     setDraft((old) => (old ? { ...old, ...value } : null));
-    setConfirmed(false);
     setMessage("");
   }
   async function generate() {
@@ -203,7 +200,6 @@ export function ReviewForm({
     setError("");
     setTrialDiagnostic("");
     setMessage("");
-    setConfirmed(false);
     if (!validAnswers || !hasExperience(experience, answers)) {
       setError(t.more);
       return;
@@ -314,7 +310,6 @@ export function ReviewForm({
     });
     setDraftLanguage(locale);
     setStage("review");
-    setConfirmed(false);
     setError("");
     setTrialDiagnostic("");
     setMessage("");
@@ -325,7 +320,7 @@ export function ReviewForm({
     );
   }
   async function copy(text: string) {
-    if (!confirmed || kioskExpired.current) return;
+    if (kioskExpired.current || busy || !text.trim()) return;
     try {
       await navigator.clipboard.writeText(text);
       setMessage(t.copied);
@@ -342,8 +337,6 @@ export function ReviewForm({
     setExperience("");
     setAnswers(emptyAnswers());
     setDraft(null);
-    setConsent(false);
-    setConfirmed(false);
     setError("");
     setTrialDiagnostic("");
     setMessage("");
@@ -741,15 +734,6 @@ export function ReviewForm({
                   {q.spend}: 0–100000 (0.00)
                 </p>
               )}
-              <label className="check consent-check">
-                <input
-                  type="checkbox"
-                  disabled={busy}
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
-                />
-                <span>{t.consent}</span>
-              </label>
               {!ready && <p className="empty-guidance">{c.emptyHint}</p>}
               {challengeRequired && turnstileSiteKey && (
                 <div className="field" role="group" aria-label={t.challengePrompt}>
@@ -762,9 +746,11 @@ export function ReviewForm({
                 </div>
               )}
               <div className="generate-action">
+                <p id="ai-use-note" className="ai-use-note">{t.aiUseNotice}</p>
                 <button
                   className="btn full primary-action"
-                  disabled={!consent || busy || !ready || (challengeRequired && !challengeToken)}
+                  aria-describedby="ai-use-note"
+                  disabled={busy || !ready || (challengeRequired && !challengeToken)}
                   onClick={generate}
                 >
                   {busy ? (
@@ -848,34 +834,38 @@ export function ReviewForm({
                 <p role="status" className="notice">{t.xhsRiskNotice}</p>
               )}
               {photos.length > 0 && (
-                <div className="draft-photo-reminder">
-                  <div className="photos">
-                    {photos.map((p) => (
-                      <div className="photo" key={p.url}>
-                        <img src={p.url} alt={p.name} />
+                <section className="draft-photo-reminder" aria-label={t.photosToShare}>
+                  <div className="review-photo-heading">
+                    <h2>{t.photosToShare}</h2>
+                    <p>{t.downloadPhotoHint}</p>
+                  </div>
+                  <div className="review-photo-grid">
+                    {photos.map((photo) => (
+                      <div className="review-photo-card" key={photo.url}>
+                        <img src={photo.url} alt={photo.name} />
+                        <a
+                          className="photo-download"
+                          href={photo.url}
+                          download={photo.name}
+                          aria-label={`${t.downloadPhoto}: ${photo.name}`}
+                        >
+                          <Download size={15} aria-hidden="true" />
+                          <span>{t.downloadPhoto}</span>
+                        </a>
                       </div>
                     ))}
                   </div>
                   <p>{c.previewOnly}</p>
-                </div>
+                </section>
               )}
-              <div
-                className={`confirmation-box ${confirmed ? "confirmed" : ""}`}
-              >
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    disabled={busy}
-                    checked={confirmed}
-                    onChange={(e) => setConfirmed(e.target.checked)}
-                  />
-                  <span>{t.confirm}</span>
-                </label>
-              </div>
+              <p className="review-reminder">
+                <ShieldCheck size={17} aria-hidden="true" />
+                <span>{t.reviewReminder}</span>
+              </p>
               <div className="share-actions">
                 <button
                   className="btn primary-action"
-                  disabled={busy || !confirmed || !draft.body.trim()}
+                  disabled={busy || !draft.body.trim()}
                   onClick={() => copy(draft.body)}
                 >
                   <Copy size={18} />
@@ -884,7 +874,7 @@ export function ReviewForm({
                 {platform === "xiaohongshu" && (
                   <button
                     className="btn secondary"
-                    disabled={busy || !confirmed || !draft.title.trim()}
+                    disabled={busy || !draft.title.trim()}
                     onClick={() => copy(draft.title)}
                   >
                     {t.copyTitle}
@@ -894,13 +884,13 @@ export function ReviewForm({
                   <a
                     className="btn secondary"
                     href={
-                      confirmed && draft.body.trim() && !busy
+                      draft.body.trim() && !busy
                         ? location.google_url
                         : undefined
                     }
-                    aria-disabled={!confirmed || !draft.body.trim() || busy}
+                    aria-disabled={!draft.body.trim() || busy}
                     onClick={(e) => {
-                      if (!confirmed || !draft.body.trim() || busy)
+                      if (!draft.body.trim() || busy)
                         e.preventDefault();
                     }}
                     target="_blank"
@@ -929,7 +919,7 @@ export function ReviewForm({
                 </button>
                 <button
                   className="btn text"
-                  disabled={busy || !consent}
+                  disabled={busy}
                   onClick={generate}
                 >
                   <Sparkles size={15} />
