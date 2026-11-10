@@ -59,7 +59,7 @@ export function containsUnstatedPrice(
   draft: { title: string; body: string },
   customerText: string,
 ) {
-  const money = /(?:\b(?:RM|MYR|USD|SGD|AUD|GBP)\s*|[$€£¥]\s*)(\d[\d,.]*)|\b(\d[\d,.]*)\s*(?:ringgit|dollars?|yuan|元|块|塊)\b/giu;
+  const money = /(?:\b(?:RM|MYR|USD|SGD|AUD|GBP)\s*|[$€£¥]\s*)(\d[\d,.]*)|\b(\d[\d,.]*)\s*(?:ringgit|dollars?|yuan|元|块|塊)(?![\p{L}\p{N}])/giu;
   const values = (text: string) => [...text.matchAll(money)]
     .map((match) => Number((match[1] || match[2]).replace(/,/g, "")))
     .filter((amount) => Number.isFinite(amount));

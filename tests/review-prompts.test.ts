@@ -12,6 +12,10 @@ test("customer-authored prices remain allowed but newly inferred amounts are blo
   assert.equal(containsUnstatedPrice({ title: "RM999 special", body: "A nice visit." }, original), true);
   assert.equal(containsUnstatedPrice({ title: "", body: "I paid RM400." }, "The wait was 20 minutes."), true);
   assert.equal(containsUnstatedPrice({ title: "", body: "Excellent value for money." }, ""), false);
+  assert.equal(containsUnstatedPrice({ title: "", body: "消费了1288元。" }, "我做了护理，消费了1288元。"), false);
+  assert.equal(containsUnstatedPrice({ title: "", body: "消费了1288元。" }, "我做了护理，感觉不错。"), true);
+  // A merchant-set questionnaire label does not count as customer-written consent to show its price.
+  assert.equal(containsUnstatedPrice({ title: "", body: "Great RM488 session." }, "The visit was pleasant."), true);
   for (const locale of ["en","zh-CN","zh-TW","ms"] as const)
     assert.ok(errorText("UNSTATED_PRICE", translations[locale]).length > 10);
 });

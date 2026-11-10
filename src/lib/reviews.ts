@@ -197,6 +197,9 @@ export async function generate(
         // Keep the optional amount out of every AI/provider input, not only the prompt text.
         answers: input.answers ? { ...input.answers, spend: null } : undefined },
       prepared.businessName!,
+      // Only voluntary free text may authorize a price in the AI result.
+      // Questionnaire labels and spending answers must never authorize prices.
+      input.experience,
     );
     const committed = await db.transaction(async (t) => {
       const tx = t as unknown as DB;
@@ -233,7 +236,7 @@ const outputSchema = z.object({
   body: z.string().min(1).max(3000),
   needsDetail: z.boolean(),
 });
-export async function writeDraft(input: GenerationInput, businessName: string) {
+export async function writeDraft(input: GenerationInput, businessName: string, customerText = input.experience) {
   if (process.env.AI_MODE !== "gemini") {
     if (process.env.APP_MODE !== "local")
       throw new AppError("AI_NOT_CONFIGURED", 503);
@@ -294,7 +297,7 @@ export async function writeDraft(input: GenerationInput, businessName: string) {
   if (parsed.data.needsDetail) throw new AppError("MORE_DETAIL", 422);
   // A real customer may mention their paid amount. Do not expose any invented
   // amount supplied by Gemini itself.
-  if (containsUnstatedPrice(parsed.data, input.experience))
+  if (containsUnstatedPrice(parsed.data, customerText))
     throw new AppError("UNSTATED_PRICE", 422);
   if (input.platform === "xiaohongshu") {
     // Never hand out generated promotional/unsafe wording; preserve user input.
