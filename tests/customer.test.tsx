@@ -38,7 +38,7 @@ afterEach(() => {
   testing.cleanup();
   sessionStorage.clear();
 });
-test("manual draft requires confirmation; editing resets approval", async () => {
+test("manual draft copies without approval checkbox and stays available after edits", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
   await u.click(r.getByRole("button", { name: "English" }));
@@ -47,18 +47,12 @@ test("manual draft requires confirmation; editing resets approval", async () => 
     "The soup was tasty but the wait was long.",
   );
   await u.click(r.getByRole("button", { name: "Write without AI" }));
-  const copy = r.getByRole("button", {
-    name: "Copy review",
-  }) as HTMLButtonElement;
-  assert.equal(copy.disabled, true);
-  await u.click(
-    r.getByLabelText(
-      "I have checked this version and it accurately reflects my own experience.",
-    ),
-  );
+  const copy = r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement;
   assert.equal(copy.disabled, false);
+  assert.equal(r.queryByRole("checkbox"), null);
+  assert.ok(r.getByText(/Check and edit anything/));
   await u.type(r.getByLabelText("Review"), " I would prefer faster service.");
-  assert.equal(copy.disabled, true);
+  assert.equal(copy.disabled, false);
 });
 test("switching interface language preserves original text and shows translated controls", async () => {
   const u = userEvent.setup();
@@ -90,7 +84,6 @@ test("Netlify trial identifies a failed guest session without exposing response 
   />);
   await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("What stood out?"), "The staff listened carefully and the visit was pleasant.");
-  await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByText(/Trial diagnostics: guest session · HTTP 502 · INVALID_RESPONSE/)),
@@ -108,7 +101,6 @@ test("Netlify trial shows a safe API error code, but ordinary businesses do not"
   const r = testing.render(<ReviewForm location={{ ...loc, business_id: "netlify-trial-only", slug: "netlify-demo" }} local={false} />);
   await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("What stood out?"), "The staff listened carefully and the visit was pleasant.");
-  await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByText(/Trial diagnostics: guest session · HTTP 403 · ORIGIN_REJECTED/)),
@@ -128,7 +120,6 @@ test("one generation request returns editable draft with explicit simulated labe
   const r = testing.render(<ReviewForm location={loc} local />);
   await u.click(r.getByRole("button", { name: "English" }));
   await u.click(r.getByRole("button", { name: "Try a sample" }));
-  await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByText(/Local demo: no AI call or translation/)),
@@ -141,7 +132,7 @@ test("one generation request returns editable draft with explicit simulated labe
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
-    true,
+    false,
   );
 });
 test("Xiaohongshu manual route has separate title and review with no auto-post action", async () => {
@@ -189,7 +180,7 @@ test("photo preview stays local and is removable without a network upload", asyn
   }
 });
 
-test("questionnaire starts neutral, supports feedback-only generation and clears stale approval", async () => {
+test("questionnaire starts neutral, supports feedback-only generation and immediate sharing", async () => {
   const u = userEvent.setup();
   let calls = 0;
   let payload: any;
@@ -210,7 +201,6 @@ test("questionnaire starts neutral, supports feedback-only generation and clears
     testing.within(group).queryAllByRole("button", { pressed: true }).length,
     0,
   );
-  await u.click(r.getByLabelText(/Use AI to help/));
   const button = r.getByRole("button", {
     name: "Generate my review draft",
   }) as HTMLButtonElement;
@@ -224,7 +214,6 @@ test("questionnaire starts neutral, supports feedback-only generation and clears
   assert.equal(calls, 1);
   assert.equal(payload.experience, "");
   assert.deepEqual(payload.answers.ratings, { service: "poor" });
-  await u.click(r.getByLabelText(/I have checked this version/));
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
@@ -431,7 +420,6 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
     (r.getByLabelText("Review") as HTMLTextAreaElement).value,
     "The wait was long",
   );
-  await u.click(r.getByLabelText(/I have checked this version/));
   await u.click(r.getByRole("button", { name: "Edit my answers" }));
   assert.ok(
     r.getByRole("button", { name: "The wait was long", pressed: true }),
@@ -442,11 +430,11 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
-    true,
+    false,
   );
 });
 
-test("reloading restores the draft but never restores export approval", async () => {
+test("reloading restores the draft and sharing remains available without approval checkbox", async () => {
   const u = userEvent.setup();
   let r = testing.render(<ReviewForm location={loc} local />);
   await u.click(r.getByRole("button", { name: "English" }));
@@ -455,7 +443,6 @@ test("reloading restores the draft but never restores export approval", async ()
     "Helpful staff and a quiet room.",
   );
   await u.click(r.getByRole("button", { name: "Write without AI" }));
-  await u.click(r.getByLabelText(/I have checked this version/));
   r.unmount();
   r = testing.render(<ReviewForm location={loc} local />);
   await testing.waitFor(() =>
@@ -467,7 +454,7 @@ test("reloading restores the draft but never restores export approval", async ()
   assert.equal(
     (r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement)
       .disabled,
-    true,
+    false,
   );
 });
 
@@ -538,8 +525,7 @@ test("kiosk inactivity resets the form, and a delayed AI response cannot revive 
     const r = testing.render(<ReviewForm location={loc} local />);
     await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "Private details to clear");
-    await u.click(r.getByLabelText(/Use AI to help/));
-    await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+      await u.click(r.getByRole("button", { name: "Generate my review draft" }));
     await generationStarted;
     time += 5 * 60 * 1000 + 1;
     window.dispatchEvent(new window.Event("focus"));
@@ -592,7 +578,6 @@ test("AI rate threshold presents a human check and leaves manual writing enabled
   );
   await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("What stood out?"), "A short honest experience.");
-  await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
   await testing.waitFor(() =>
     assert.ok(r.getByRole("group", { name: /quick verification/ })),
@@ -638,8 +623,7 @@ test("completed human challenge token is supplied for one retry", async () => {
     );
     await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "A reasonable experience.");
-    await u.click(r.getByLabelText(/Use AI to help/));
-    await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+      await u.click(r.getByRole("button", { name: "Generate my review draft" }));
     await testing.waitFor(() =>
       assert.ok(r.getByRole("group", { name: /quick verification/ })),
     );
@@ -761,6 +745,142 @@ test("Xiaohongshu highlights possibly risky customer wording without blocking ho
   await u.click(r.getByRole("button", { name: "Write without AI" }));
   assert.ok(r.getByRole("status").textContent?.includes("check this draft"));
   assert.ok(r.getByText(/AI-content disclosure where applicable/));
-  await u.click(r.getByLabelText(/I have checked this version/));
   assert.equal((r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement).disabled, false);
+});
+
+test("AI use is disclosed without a required checkbox in all four languages", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  assert.ok(r.getByText(/By selecting Generate my review draft, I explicitly consent/));
+  assert.ok(r.getByText(/health details I choose to enter/));
+  assert.equal(r.getAllByRole("link", { name: "Privacy information" }).length, 2);
+  assert.equal(r.queryByRole("checkbox"), null);
+  const generate = r.getByRole("button", { name: "Generate my review draft" }) as HTMLButtonElement;
+  assert.equal(generate.disabled, true);
+  await u.type(r.getByLabelText("What stood out?"), "Friendly and helpful staff.");
+  assert.equal(generate.disabled, false);
+  assert.equal(generate.getAttribute("aria-describedby"), "ai-use-note");
+  for (const language of ["zh-CN", "zh-TW", "ms", "en"]) {
+    await u.selectOptions(r.container.querySelector("#ui-language") as HTMLSelectElement, language);
+    assert.ok(r.getByRole("button", { name: language === "zh-CN" ? "生成我的评价草稿" : language === "zh-TW" ? "生成我的評價草稿" : language === "ms" ? "Jana draf ulasan saya" : "Generate my review draft" }));
+    assert.equal(r.queryByRole("checkbox"), null);
+  }
+});
+
+test("original selected photos download locally for Google and Xiaohongshu, without upload", async () => {
+  const u = userEvent.setup();
+  const oldCreate = URL.createObjectURL;
+  const oldRevoke = URL.revokeObjectURL;
+  const revoked: string[] = [];
+  let created = 0, networkRequests = 0;
+  URL.createObjectURL = () => "blob:local-photo-" + (++created);
+  URL.revokeObjectURL = (url) => revoked.push(url);
+  globalThis.fetch = async () => {
+    networkRequests++;
+    return Response.json({ ok: true });
+  };
+  try {
+    for (const platform of ["Google Reviews", "Xiaohongshu"]) {
+      const r = testing.render(<ReviewForm location={loc} local />);
+      await u.click(r.getByRole("button", { name: "English" }));
+      await u.click(r.getByText("Add photos (optional)"));
+      const input = r.getByLabelText(/Add a photo preview/);
+      await u.upload(input, new window.File(["photo-content"], "my-original.png", { type: "image/png" }));
+      assert.ok(r.getByAltText("my-original.png"));
+      if (platform === "Xiaohongshu") await u.click(r.getByRole("button", { name: platform }));
+      await u.type(r.getByLabelText("What stood out?"), "A personal experience with friendly staff.");
+      await u.click(r.getByRole("button", { name: "Write without AI" }));
+      const link = r.getByRole("link", { name: "Download photo: my-original.png" }) as HTMLAnchorElement;
+      assert.equal(link.getAttribute("href"), "blob:local-photo-" + created);
+      assert.equal(link.getAttribute("download"), "my-original.png");
+      assert.ok(r.getByText("Photos for your post"));
+      assert.equal(networkRequests, platform === "Google Reviews" ? 0 : 1);
+      await u.click(r.getByRole("button", { name: "Finish & clear" }));
+      assert.equal(r.queryByRole("link", { name: "Download photo: my-original.png" }), null);
+      assert.ok(revoked.includes("blob:local-photo-" + created));
+      r.unmount();
+    }
+    // Only the Finish cleanup calls the guest endpoint, never the photo itself.
+    assert.equal(networkRequests, 2);
+  } finally {
+    URL.createObjectURL = oldCreate;
+    URL.revokeObjectURL = oldRevoke;
+  }
+});
+
+test("mobile native share uses the original selected image and keeps download fallback", async () => {
+  const u = userEvent.setup();
+  const priorShare = Object.getOwnPropertyDescriptor(navigator, "share");
+  const priorCanShare = Object.getOwnPropertyDescriptor(navigator, "canShare");
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  const calls: ShareData[] = [];
+  URL.createObjectURL = () => "blob:original-image";
+  URL.revokeObjectURL = () => {};
+  Object.defineProperty(navigator, "canShare", {
+    configurable: true,
+    value: (data: ShareData) => Boolean(data.files?.[0]?.name === "customer-photo.jpg"),
+  });
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: async (data: ShareData) => { calls.push(data); },
+  });
+  try {
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await u.click(r.getByRole("button", { name: "English" }));
+    await u.click(r.getByText("Add photos (optional)"));
+    const original = new window.File(["original-bytes"], "customer-photo.jpg", { type: "image/jpeg" });
+    await u.upload(r.getByLabelText(/Add a photo preview/), original);
+    await u.type(r.getByLabelText("What stood out?"), "Friendly service, worth mentioning.");
+    await u.click(r.getByRole("button", { name: "Write without AI" }));
+    const share = r.getByRole("button", { name: "Share / Save: customer-photo.jpg" });
+    assert.ok(r.getByRole("link", { name: "Download photo: customer-photo.jpg" }));
+    await u.click(share);
+    assert.equal(calls.length, 1);
+    assert.strictEqual(calls[0].files?.[0], original);
+    assert.equal(calls[0].files?.[0].type, "image/jpeg");
+    assert.equal(r.queryByText(/Sharing is not available here/), null);
+    await u.click(r.getByRole("button", { name: "Finish & clear" }));
+    assert.equal(r.queryByRole("button", { name: "Share / Save: customer-photo.jpg" }), null);
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    if (priorShare) Object.defineProperty(navigator, "share", priorShare);
+    else Reflect.deleteProperty(navigator, "share");
+    if (priorCanShare) Object.defineProperty(navigator, "canShare", priorCanShare);
+    else Reflect.deleteProperty(navigator, "canShare");
+  }
+});
+
+test("photo download remains visible when native file sharing is unsupported", async () => {
+  const u = userEvent.setup();
+  const priorShare = Object.getOwnPropertyDescriptor(navigator, "share");
+  const priorCanShare = Object.getOwnPropertyDescriptor(navigator, "canShare");
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  URL.createObjectURL = () => "blob:fallback-image";
+  URL.revokeObjectURL = () => {};
+  Object.defineProperty(navigator, "canShare", { configurable: true, value: () => false });
+  Object.defineProperty(navigator, "share", { configurable: true, value: async () => {} });
+  try {
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await u.click(r.getByRole("button", { name: "English" }));
+    await u.click(r.getByText("Add photos (optional)"));
+    await u.upload(
+      r.getByLabelText(/Add a photo preview/),
+      new window.File(["data"], "original.png", { type: "image/png" }),
+    );
+    await u.type(r.getByLabelText("What stood out?"), "An authentic experience I can describe.");
+    await u.click(r.getByRole("button", { name: "Write without AI" }));
+    assert.equal(r.queryByRole("button", { name: /Share \/ Save/ }), null);
+    assert.ok(r.getByRole("link", { name: "Download photo: original.png" }));
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    if (priorShare) Object.defineProperty(navigator, "share", priorShare);
+    else Reflect.deleteProperty(navigator, "share");
+    if (priorCanShare) Object.defineProperty(navigator, "canShare", priorCanShare);
+    else Reflect.deleteProperty(navigator, "canShare");
+  }
 });

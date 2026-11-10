@@ -29,11 +29,15 @@ export default function Privacy() {
           </p>
           <h2>What is sent to AI</h2>
           <p>
-            If you choose Help me write, your supplied text and selected
-            answers are sent to the configured Google Gemini provider so it
-            can prepare a draft. You can instead use your own words without
-            requesting AI assistance. Provider-side processing and retention
-            are subject to the provider's terms and settings.
+            Selecting the Generate my review draft button indicates your
+            explicit consent to sending your written experience and selected
+            answers, including any health information you choose to provide,
+            to Google Gemini for the purpose of creating an editable review
+            draft. This does not authorize public posting. If you do not want
+            your text sent to the AI provider, select Write without AI.
+            Provider-side processing and retention are subject to Google's
+            applicable terms and settings. You can clear the local draft and
+            request server-session cleanup using Finish &amp; clear.
           </p>
           <h2>Protecting the service</h2>
           <p>
