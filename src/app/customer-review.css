@@ -560,6 +560,12 @@
   margin: 0 0 10px;
   padding: 0 2px;
 }
+.ai-use-note a {
+  color: #176b78;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .empty-guidance {
   font-size: 14px;
   color: #506376;
@@ -632,6 +638,9 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
   gap: 10px;
 }
+@media (max-width: 520px) {
+  .review-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+}
 .review-photo-card {
   min-width: 0;
   overflow: hidden;
@@ -645,6 +654,11 @@
   aspect-ratio: 4 / 3;
   object-fit: cover;
 }
+.photo-actions {
+  display: flex;
+  flex-direction: column;
+}
+.review-photo-card .photo-share,
 .review-photo-card .photo-download {
   display: flex;
   align-items: center;
@@ -663,9 +677,24 @@
   text-decoration: none;
   transition: background-color 0.15s ease;
 }
-.review-photo-card .photo-download svg { flex: none; }
+.review-photo-card .photo-share {
+  border: 0;
+  border-top: 1px solid #dce5eb;
+  background: #e4f2f3;
+  cursor: pointer;
+  font-family: inherit;
+  color: #176b78;
+}
+.review-photo-card .photo-download svg,
+.review-photo-card .photo-share svg { flex: none; }
+.review-photo-card .photo-share:focus-visible,
+.review-photo-card .photo-download:focus-visible {
+  outline: 3px solid #176b78;
+  outline-offset: -3px;
+}
 @media (hover: hover) {
-  .review-photo-card .photo-download:hover { background: #e3f1f2; }
+  .review-photo-card .photo-share:hover,
+  .review-photo-card .photo-download:hover { background: #d6e9eb; }
 }
 @media (prefers-reduced-motion: reduce) {
   .review-photo-card .photo-download { transition: none; }

@@ -19,6 +19,7 @@ import {
   ImagePlus,
   ShieldCheck,
   Download,
+  Share2,
   Check,
   Copy,
   LoaderCircle,
@@ -37,7 +38,7 @@ import {
 } from "@/lib/i18n";
 import type { PublicLocation, Draft } from "@/lib/reviews";
 import { xiaohongshuDraftRisk } from "@/lib/review-prompts";
-type Photo = { url: string; name: string };
+type Photo = { url: string; name: string; file: File };
 export function ReviewForm({
   location,
   local,
@@ -420,6 +421,27 @@ export function ReviewForm({
     };
   }, [stage, storageKey, location.slug, isKiosk]);
 
+  function canSharePhoto(file: File): boolean {
+    try {
+      return typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] });
+    } catch {
+      return false;
+    }
+  }
+  async function sharePhoto(photo: Photo) {
+    if (kioskExpired.current || !canSharePhoto(photo.file)) return;
+    try {
+      // Call share directly from the click: mobile browsers require user activation.
+      await navigator.share({ files: [photo.file] });
+    } catch (error) {
+      // Closing the share sheet is a normal choice, not a failed download.
+      if (!(error instanceof Error && error.name === "AbortError"))
+        setMessage(t.photoShareFallback);
+    }
+  }
   function addPhotos(files: FileList | null) {
     if (!files) return;
     const list = Array.from(files);
@@ -436,7 +458,7 @@ export function ReviewForm({
     }
     const next = [
       ...photos,
-      ...list.map((f) => ({ url: URL.createObjectURL(f), name: f.name })),
+      ...list.map((f) => ({ url: URL.createObjectURL(f), name: f.name, file: f })),
     ];
     setPhotos(next);
     photoRef.current = next;
@@ -746,7 +768,10 @@ export function ReviewForm({
                 </div>
               )}
               <div className="generate-action">
-                <p id="ai-use-note" className="ai-use-note">{t.aiUseNotice}</p>
+                <p id="ai-use-note" className="ai-use-note">
+                  {t.aiUseNotice}{" "}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer">{t.privacyLink}</a>
+                </p>
                 <button
                   className="btn full primary-action"
                   aria-describedby="ai-use-note"
@@ -843,7 +868,19 @@ export function ReviewForm({
                     {photos.map((photo) => (
                       <div className="review-photo-card" key={photo.url}>
                         <img src={photo.url} alt={photo.name} />
-                        <a
+                        <div className="photo-actions">
+                          {canSharePhoto(photo.file) && (
+                            <button
+                              type="button"
+                              className="photo-share"
+                              onClick={() => sharePhoto(photo)}
+                              aria-label={`${t.sharePhoto}: ${photo.name}`}
+                            >
+                              <Share2 size={15} aria-hidden="true" />
+                              <span>{t.sharePhoto}</span>
+                            </button>
+                          )}
+                          <a
                           className="photo-download"
                           href={photo.url}
                           download={photo.name}
@@ -851,7 +888,8 @@ export function ReviewForm({
                         >
                           <Download size={15} aria-hidden="true" />
                           <span>{t.downloadPhoto}</span>
-                        </a>
+                          </a>
+                        </div>
                       </div>
                     ))}
                   </div>
