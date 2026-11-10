@@ -541,7 +541,7 @@ test("authenticated management and QR endpoints enforce business ownership", asy
       action: "location",
       businessId,
       id: "a",
-      name: "a",
+      name: "Test location A",
       address: "Fictional address",
       googleUrl: "",
       facebookReviewUrl: facebookReviewUrlValue,
