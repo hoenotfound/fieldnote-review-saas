@@ -114,6 +114,7 @@ const en = {
   manualSpendConsent: "Optional: Share my spending amount for private branch statistics when writing without AI. It won't be part of my review.",
   manualSpendSaved: "Your optional spending amount was recorded for private statistics.",
   manualSpendFailed: "Your review is ready, but your optional spending amount could not be saved.",
+  retrySpendRemoval: "Remove previously shared amount",
   clearSpend: "Clear amount",
   commentHint:
     "Add any details, especially what could improve. You can leave this blank if you selected feedback above.",
@@ -153,6 +154,7 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     manualSpendConsent: "选填：不使用 AI 写评价时，同意将消费金额用于商家内部统计，不会出现在评价里。",
     manualSpendSaved: "消费金额已保存作内部统计。",
     manualSpendFailed: "评价已准备好，但选填的消费金额未能保存。",
+    retrySpendRemoval: "清除之前提交的消费金额",
     clearSpend: "清除金额",
     commentHint:
       "补充任何细节，尤其是可以改善的地方。如果已选择上方的感受，此处可留空。",
@@ -189,6 +191,7 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     manualSpendConsent: "選填：不使用 AI 寫評價時，同意將消費金額用於商家內部統計，不會出現在評價裡。",
     manualSpendSaved: "消費金額已儲存作內部統計。",
     manualSpendFailed: "評價已準備好，但選填的消費金額未能儲存。",
+    retrySpendRemoval: "清除之前提交的消費金額",
     clearSpend: "清除金額",
     commentHint:
       "補充任何細節，尤其是可以改善的地方。如果已選擇上方的感受，此處可留空。",
@@ -225,6 +228,7 @@ export const questionnaireCopy: Record<Locale, typeof en> = {
     manualSpendConsent: "Pilihan: Saya setuju berkongsi jumlah perbelanjaan untuk statistik dalaman jika menulis tanpa AI. Tidak dimasukkan dalam ulasan.",
     manualSpendSaved: "Jumlah perbelanjaan pilihan telah disimpan untuk statistik dalaman.",
     manualSpendFailed: "Ulasan anda sudah siap, tetapi jumlah perbelanjaan pilihan tidak dapat disimpan.",
+    retrySpendRemoval: "Padam jumlah perbelanjaan yang dikongsi sebelum ini",
     clearSpend: "Kosongkan jumlah",
     commentHint:
       "Tambah butiran, terutama perkara yang boleh diperbaiki. Boleh dibiarkan kosong jika anda telah memilih maklum balas di atas.",

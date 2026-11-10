@@ -66,6 +66,7 @@ export function ReviewForm({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
   const [shareManualSpending, setShareManualSpending] = useState(false);
+  const [hasReportedManualSpend, setHasReportedManualSpend] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -77,7 +78,9 @@ export function ReviewForm({
   const restored = useRef(false);
   const requestEpoch = useRef(0);
   const activeGeneration = useRef<AbortController | null>(null);
-  const activeManualSpending = useRef<AbortController | null>(null);
+  // Serialize saves and withdrawals to prevent late saves from undoing opt-outs.
+  const manualSpendingQueue = useRef<Promise<void>>(Promise.resolve());
+  const manualSpendingReported = useRef(false);
   const kioskExpired = useRef(false);
   const [challengeRequired, setChallengeRequired] = useState(false);
   const [challengeToken, setChallengeToken] = useState("");
@@ -113,6 +116,11 @@ export function ReviewForm({
           const facebookNoLongerConfigured = old.platform === "facebook" && !location.facebook_review_url;
           if (!facebookNoLongerConfigured && ["google", "xiaohongshu", "facebook", "instagram"].includes(old.platform))
             setPlatform(old.platform as ReviewPlatform);
+          if (old.shareManualSpending === true) setShareManualSpending(true);
+          if (old.hasReportedManualSpend === true) {
+            manualSpendingReported.current = true;
+            setHasReportedManualSpend(true);
+          }
           const savedAnswers = answersSchema.safeParse(old.answers);
           if (savedAnswers.success && old.configVersion === configVersion) {
             // An older draft may have a first-visit answer from the removed UI.
@@ -162,6 +170,8 @@ export function ReviewForm({
             started: stage === "visit" || stage === "review",
             experience,
             answers,
+            shareManualSpending,
+            hasReportedManualSpend,
             configVersion,
             locale,
             output,
@@ -176,6 +186,8 @@ export function ReviewForm({
     stage,
     experience,
     answers,
+    shareManualSpending,
+    hasReportedManualSpend,
     configVersion,
     locale,
     output,
@@ -309,6 +321,42 @@ export function ReviewForm({
       if (epoch === requestEpoch.current) setBusy(false);
     }
   }
+  function updateManualSpending(consent: boolean, spend: number | null = null) {
+    if (!consent && !manualSpendingReported.current) return;
+    const epoch = requestEpoch.current;
+    const feedback = questionnaireCopy[locale];
+    manualSpendingReported.current = consent;
+    setHasReportedManualSpend(consent);
+    // Each operation must follow the previous one even when the user changes
+    // their mind while a save is still in flight. The server also locks guests.
+    manualSpendingQueue.current = manualSpendingQueue.current.catch(() => {}).then(async () => {
+      if (consent) {
+        const guest = await fetch("/api/guest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: location.slug }),
+        });
+        if (!guest.ok) throw new Error("GUEST_UNAVAILABLE");
+      }
+      const response = await fetch("/api/spending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: location.slug, consent, spend: consent ? spend : null }),
+      });
+      if (!response.ok) throw new Error("SPENDING_UNAVAILABLE");
+      if (epoch === requestEpoch.current && manualSpendingReported.current === consent)
+        setMessage(consent ? feedback.manualSpendSaved : feedback.manualSpendingRemoved);
+    }).catch(() => {
+      // A failed withdrawal may leave an amount on the server. Keep a retry
+      // control available rather than claiming the amount was removed.
+      if (!consent && epoch === requestEpoch.current && !manualSpendingReported.current) {
+        manualSpendingReported.current = true;
+        setHasReportedManualSpend(true);
+      }
+      if (epoch === requestEpoch.current)
+        setMessage(consent ? feedback.manualSpendFailed : feedback.manualSpendingRemovalFailed);
+    });
+  }
   function manual() {
     if (kioskExpired.current) return;
     if (platform === "facebook" && !location.facebook_review_url) {
@@ -332,39 +380,11 @@ export function ReviewForm({
     setTrialDiagnostic("");
     setMessage("");
     pendingKey.current = null;
-    // Manual reviews work even if the optional analytics service is offline.
-    // No review text is transmitted in the background submission.
-    if (shareManualSpending && answers.spend !== null) {
-      const spend = answers.spend;
-      const epoch = requestEpoch.current;
-      activeManualSpending.current?.abort();
-      const controller = new AbortController();
-      activeManualSpending.current = controller;
-      void (async () => {
-        const guest = await fetch("/api/guest", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: location.slug }),
-          signal: controller.signal,
-        });
-        if (!guest.ok) throw new Error("GUEST_UNAVAILABLE");
-        if (epoch !== requestEpoch.current || controller.signal.aborted) return;
-        const stored = await fetch("/api/spending", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug: location.slug, spend, consent: true }),
-          signal: controller.signal,
-        });
-        if (!stored.ok) throw new Error("SPENDING_UNAVAILABLE");
-        if (epoch === requestEpoch.current && !controller.signal.aborted)
-          setMessage(q.manualSpendSaved);
-      })().catch(() => {
-        if (epoch === requestEpoch.current && !controller.signal.aborted)
-          setMessage(q.manualSpendFailed);
-      }).finally(() => {
-        if (activeManualSpending.current === controller) activeManualSpending.current = null;
-      });
-    }
+    // This separate request never contains review text or uses Gemini.
+    if (shareManualSpending && answers.spend !== null)
+      updateManualSpending(true, answers.spend);
+    else if (manualSpendingReported.current)
+      updateManualSpending(false);
     setTimeout(
       () => resultRef.current?.scrollIntoView({ behavior: "smooth" }),
       100,
@@ -383,8 +403,8 @@ export function ReviewForm({
     requestEpoch.current += 1;
     activeGeneration.current?.abort();
     activeGeneration.current = null;
-    activeManualSpending.current?.abort();
-    activeManualSpending.current = null;
+    manualSpendingReported.current = false;
+    setHasReportedManualSpend(false);
     setShareManualSpending(false);
     setChallengeRequired(false);
     setChallengeToken("");
@@ -410,6 +430,8 @@ export function ReviewForm({
     clearLocal();
     setStage("complete");
     try {
+      // Finish revokes the guest session: settle any saved-amount removal first.
+      await manualSpendingQueue.current;
       const res = await fetch("/api/guest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -648,6 +670,8 @@ export function ReviewForm({
                 locale={locale}
                 busy={busy}
                 onChange={(next) => {
+                  if (next.spend !== answers.spend && manualSpendingReported.current)
+                    updateManualSpending(false);
                   setAnswers(next);
                   invalidate();
                 }}
@@ -660,6 +684,7 @@ export function ReviewForm({
                       className="sample-link"
                       disabled={busy}
                       onClick={() => {
+                        if (manualSpendingReported.current) updateManualSpending(false);
                         setAnswers(emptyAnswers());
                         setExperience(t.sampleText);
                         invalidate();
@@ -880,10 +905,25 @@ export function ReviewForm({
                     type="checkbox"
                     checked={shareManualSpending}
                     disabled={busy}
-                    onChange={(e) => setShareManualSpending(e.target.checked)}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setShareManualSpending(next);
+                      if (!next && manualSpendingReported.current)
+                        updateManualSpending(false);
+                    }}
                   />
                   <span>{q.manualSpendConsent}</span>
                 </label>
+              )}
+              {hasReportedManualSpend && (!shareManualSpending || answers.spend === null) && (
+                <button
+                  type="button"
+                  className="btn text"
+                  disabled={busy}
+                  onClick={() => updateManualSpending(false)}
+                >
+                  {q.retrySpendRemoval}
+                </button>
               )}
               <button
                 className="btn text manual"
