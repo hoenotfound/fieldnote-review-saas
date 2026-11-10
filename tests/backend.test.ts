@@ -130,12 +130,26 @@ test("social destinations reject lookalike hosts and unsafe redirect URLs", () =
   assert.equal(instagramHandle("@yourbusiness"), "yourbusiness");
   assert.ok(facebookReviewUrl("https://www.facebook.com/YourPage/reviews"));
   assert.ok(facebookReviewUrl("https://www.facebook.com/profile.php?id=123456&sk=reviews"));
+  assert.equal(facebookReviewUrl("https://m.facebook.com/YourPage/?mibextid=abc_123"), "https://www.facebook.com/YourPage/reviews");
+  assert.equal(facebookReviewUrl("https://web.facebook.com/YourPage/reviews/?ref=page_internal"), "https://www.facebook.com/YourPage/reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/100064654155301"), "https://www.facebook.com/100064654155301/reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/pg/YourPage/reviews/"), "https://www.facebook.com/pg/YourPage/reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/p/YourPage-100064654155301/reviews"), "https://www.facebook.com/p/YourPage-100064654155301/reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/profile.php?id=123456&ref=page_internal"), "https://www.facebook.com/profile.php?id=123456&sk=reviews");
+  assert.equal(facebookReviewUrl("https://www.facebook.com/profile.php?sk=reviews&id=123456"), "https://www.facebook.com/profile.php?id=123456&sk=reviews");
   for (const value of [
     "https://facebook.com.evil.test/YourPage/reviews",
     "https://www.facebook.com/YourPage",
     "javascript:alert(1)",
     "https://x@facebook.com/Page/reviews",
     "https://www.facebook.com/Page/reviews?next=https://evil.test",
+    "https://www.facebook.com/Page/reviews?ref=https://evil.test",
+    "https://www.facebook.com/Page/reviews?sk=reviews",
+    "https://www.facebook.com/profile.php?id=123&sk=reviews&sk=other",
+    "https://www.facebook.com/profile.php?id=123&id=456",
+    "https://www.facebook.com/l.php?u=https://evil.test",
+    "https://www.facebook.com/groups/123/reviews",
+    "https://www.facebook.com/login",
   ]) assert.throws(() => facebookReviewUrl(value));
   for (const value of [
     "https://instagram.com/yourbusiness",
