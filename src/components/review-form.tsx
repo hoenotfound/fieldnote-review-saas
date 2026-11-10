@@ -748,7 +748,7 @@ export function ReviewForm({
                   </button>
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || !location.facebook_review_url}
                     aria-pressed={platform === "facebook"}
                     aria-describedby={!location.facebook_review_url ? "facebook-unavailable" : undefined}
                     onClick={() => {
@@ -764,7 +764,7 @@ export function ReviewForm({
                   </button>
                   <button
                     type="button"
-                    disabled={busy || !location.facebook_review_url}
+                    disabled={busy}
                     aria-pressed={platform === "instagram"}
                     onClick={() => {
                       setPlatform("instagram");
