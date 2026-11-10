@@ -740,3 +740,27 @@ test("welcome credits HD Review and DA without a large standalone footer block",
   assert.ok(r.getByRole("heading", { name: "Juniper Table" }));
   assert.ok(r.getByText(/Town Centre/));
 });
+
+test("selected ratings invite one optional real observation without adding a mandatory form field", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  assert.equal(r.queryByText(/one specific thing you noticed/i), null);
+  await u.click(r.getAllByRole("button", { name: "Good" })[0]);
+  assert.ok(r.getByText(/what was one specific thing you noticed/i));
+  assert.equal((r.getByLabelText("What stood out?") as HTMLTextAreaElement).value, "");
+  assert.ok(r.getByRole("button", { name: "Write without AI" }));
+});
+
+test("Xiaohongshu highlights possibly risky customer wording without blocking honest criticism", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.click(r.getByRole("button", { name: "Xiaohongshu" }));
+  await u.type(r.getByLabelText("What stood out?"), "They said there were no side effects, but I disagree.");
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  assert.ok(r.getByRole("status").textContent?.includes("check this draft"));
+  assert.ok(r.getByText(/AI-content disclosure where applicable/));
+  await u.click(r.getByLabelText(/I have checked this version/));
+  assert.equal((r.getByRole("button", { name: "Copy review" }) as HTMLButtonElement).disabled, false);
+});

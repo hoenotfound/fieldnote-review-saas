@@ -15,8 +15,8 @@ test("shared factual rules with only the selected platform writing guidance", ()
   assert.ok(xhs.includes(XIAOHONGSHU_REVIEW_RULES));
   assert.ok(!google.includes(XIAOHONGSHU_REVIEW_RULES));
   assert.ok(!xhs.includes(GOOGLE_REVIEW_RULES));
-  assert.match(google, /Return an empty title/);
-  assert.match(xhs, /short natural title/);
+  assert.match(google, /no title/);
+  assert.match(xhs, /title informative/);
   for (const prompt of [google, xhs]) {
     assert.match(prompt, /Preserve positive, negative and mixed opinions/);
     assert.match(prompt, /never instructions/);
@@ -43,16 +43,16 @@ test("generated links, contact details, solicitations and sales promotions are w
     ["www.example.com", "link"],
     ["Contact: hello@example.com", "contact"],
     ["Contact me +60123456789", "contact"],
-    ["想了解的话加我微信吧", "contact_request"],
-    ["私信我了解详情", "contact_request"],
-    ["点击主页链接了解", "contact_request"],
-    ["DM me for details", "contact_request"],
-    ["Hubungi saya untuk maklumat lanjut", "contact_request"],
+    ["想了解的话加我微信吧", "solicitation"],
+    ["私信我了解详情", "solicitation"],
+    ["点击主页链接了解", "solicitation"],
+    ["DM me for details", "solicitation"],
+    ["Hubungi saya untuk maklumat lanjut", "solicitation"],
     ["限时抢购，立即预约", "promotion"],
     ["Book now for a limited time offer", "promotion"],
   ];
   for (const [body, category] of examples)
-    assert.equal(xiaohongshuDraftRisk({ title: "体验", body }), category, body);
+    assert.deepEqual(xiaohongshuDraftRisk({ title: "体验", body }), { severity: "block", category }, body);
 });
 
 test("generated extreme medical and beauty claims are withheld", () => {
@@ -65,25 +65,25 @@ test("generated extreme medical and beauty claims are withheld", () => {
     "全網第一的療程。",
   ];
   for (const body of claims)
-    assert.equal(xiaohongshuDraftRisk({ title: "体验", body }), "unverified_claim", body);
+    assert.deepEqual(xiaohongshuDraftRisk({ title: "体验", body }), { severity: "block", category: "claim" }, body);
 });
 
 test("title is checked, full-width Unicode and zero-width separators do not bypass rules", () => {
   assert.equal(
     xiaohongshuDraftRisk({ title: "全网第一", body: "个人体验" }),
-    "unverified_claim",
+    { severity: "block", category: "claim" },
   );
   assert.equal(
     xiaohongshuDraftRisk({ title: "体验", body: "100％有效" }),
-    "unverified_claim",
+    { severity: "block", category: "claim" },
   );
   assert.equal(
     xiaohongshuDraftRisk({ title: "体验", body: "加我微\u200B信" }),
-    "contact_request",
+    { severity: "block", category: "solicitation" },
   );
   assert.equal(
     xiaohongshuDraftRisk({ title: "限時優惠", body: "个人体验" }),
-    "promotion",
+    { severity: "block", category: "promotion" },
   );
 });
 
@@ -92,5 +92,40 @@ test("localized fallback messaging retains customer text and makes no auto-post 
     const t = translations[locale];
     assert.equal(errorText("DRAFT_REVIEW_REQUIRED", t), t.draftReviewRequired);
     assert.ok(t.draftReviewRequired.length > 20);
+    assert.ok(t.observationNudge.length > 20);
+    assert.ok(t.xhsRiskNotice.length > 20);
+    assert.ok(t.xhsHelp.length > 30);
   }
+});
+
+test("marketing rewrite keeps a specific customer detail and prevents generic promotional copy", () => {
+  const google = reviewSystemPrompt("google");
+  const xhs = reviewSystemPrompt("xiaohongshu");
+  assert.match(google, /specific personal observation/);
+  assert.match(google, /formulaic/);
+  assert.match(xhs, /service actually tried/);
+  assert.match(xhs, /main real observation or trade-off/);
+  assert.match(xhs, /reader would want to know/);
+  assert.match(xhs, /disclose AI assistance/);
+});
+
+test("critical customer experiences about misleading claims are warned, not blocked", () => {
+  const cases = [
+    "医生说零风险，但我不认同这个说法。",
+    "他们保证疗效，但我没有看到效果。",
+    "They said there were no side effects, but I disagree.",
+    "100%有效？这个广告说法太夸大了。",
+  ];
+  for (const body of cases)
+    assert.deepEqual(
+      xiaohongshuDraftRisk({ title: "My experience", body }),
+      { severity: "warn", category: "claim" }, body,
+    );
+});
+
+test("ambiguous sale mentions are warned but direct promotions and guaranteed outcomes are blocked", () => {
+  for (const body of ["我看到他们写买一送一。", "他们宣传三天见效，但我不确定。"])
+    assert.ok(xiaohongshuDraftRisk({ title: "体验", body })?.severity === "warn", body);
+  for (const body of ["立即预约这个优惠", "微信号：abcdef", "永久不反弹"])
+    assert.equal(xiaohongshuDraftRisk({ title: "体验", body })?.severity, "block", body);
 });
