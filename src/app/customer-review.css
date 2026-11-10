@@ -145,7 +145,7 @@
 .review-scene .btn:disabled { opacity: 0.52; cursor: not-allowed; }
 .review-scene .btn.text {
   min-height: 44px; font-size: 15px; padding: 10px 6px;
-  background: transparent; box-shadow: none; color: #205a73;
+  background: transparent; box-shadow: none; color: #176b78;
 }
 .quiet-note {
   display: flex; justify-content: center; align-items: center; gap: 7px;
@@ -181,7 +181,7 @@
   font-size: 15px;
   padding-top: 5px;
   margin-bottom: 8px;
-  color: #203548;
+  color: #202b50;
   font-weight: 650;
 }
 .review-panel .aspect-row .answer-choices {
@@ -194,7 +194,7 @@
   min-height: 48px;
   padding: 11px 12px;
   border-color: #dce5eb;
-  color: #203548;
+  color: #202b50;
   background: #fff;
   overflow-wrap: anywhere;
   line-height: 1.35;
@@ -332,7 +332,7 @@
   padding: 5px 6px;
   border: 0;
   background: transparent;
-  color: #205a73;
+  color: #176b78;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -371,7 +371,7 @@
   font-size: 16px;
   line-height: 1.6;
   padding: 12px 14px;
-  color: #203548;
+  color: #202b50;
 }
 .review-panel textarea {
   min-height: 130px;
@@ -402,7 +402,7 @@
 .sample-link {
   font: inherit;
   font-size: 14px;
-  color: #205a73;
+  color: #176b78;
   border: 0;
   padding: 8px 0;
   background: transparent;
@@ -506,7 +506,7 @@
   min-height: 63px;
   border-radius: 12px;
   text-align: left;
-  color: #203548;
+  color: #202b50;
   cursor: pointer;
   line-height: 1.4;
 }
@@ -694,7 +694,7 @@
 }
 .logo-settings {
   margin-top: 30px;
-  border-top: 1px solid #dfe6d7;
+  border-top: 1px solid var(--review-border);
   padding-top: 24px;
 }
 .logo-settings-row {
@@ -711,7 +711,7 @@
   max-width: 100%;
 }
 .feedback-editor {
-  border-top: 1px solid #dfe6d7;
+  border-top: 1px solid var(--review-border);
   margin-top: 25px;
   padding-top: 25px;
 }
@@ -891,7 +891,7 @@
 .review-scene--welcome .welcome-step h1 {
   font-size: clamp(24px, 5.2vw, 29px);
   font-weight: 750; line-height: 1.22;
-  letter-spacing: -0.65px; color: #28234c;
+  letter-spacing: -0.65px; color: #202b50;
   text-wrap: balance; margin: 0 auto 4px;
 }
 .review-scene--welcome .welcome-bilingual {

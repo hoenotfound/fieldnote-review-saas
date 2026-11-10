@@ -52,10 +52,17 @@ test("mobile review options keep touch targets, strong focus, and narrow-screen 
   assert.match(css, /\.review-progress li\.current\s*\{ background: var\(--accent\);/);
 });
 
-test("language-first welcome is single-column and uses its own lavender identity", () => {
+test("language-first welcome is single-column with HD Review's navy, lavender and teal palette", () => {
   assert.match(css, /\.review-scene--welcome\s*\{/);
-  assert.match(css, /linear-gradient\(165deg, #f9f7ff/);
+  assert.match(css, /--review-ink: #202b50/);
+  assert.match(css, /linear-gradient\(165deg, #fbfcff 3%, #f3f0ff 58%, #ecf5f8 100%\)/);
   assert.match(css, /\.review-scene--welcome \.language-tiles\s*\{[^}]*grid-template-columns:\s*1fr;/s);
-  assert.match(css, /\.review-scene--welcome \.language-tile[^}]*min-height:\s*64px/s);
-  assert.match(css, /\.review-scene--welcome \.shop-heading \.business-mark\s*\{[^}]*width:\s*90px;/s);
+  assert.match(css, /\.review-scene--welcome \.language-tile[^}]*min-height:\s*56px;/s);
+  assert.match(css, /\.review-scene--welcome \.shop-heading \.business-mark\s*\{[^}]*width:\s*84px;/s);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?\.review-scene--welcome \.shop-heading \.business-mark\s*\{[^}]*width:\s*74px;/);
+  assert.match(css, /\.review-scene--welcome \.review-footer\s*\{[^}]*flex-direction:\s*row;/s);
+  assert.match(css, /\.review-footer \.hd-brand-byline/);
+  assert.doesNotMatch(css, /\.welcome-kicker/);
+  assert.ok(contrast("#202b50", "#f3f0ff") >= 4.5);
+  assert.ok(contrast("#506376", "#f7f8fc") >= 4.5);
 });
