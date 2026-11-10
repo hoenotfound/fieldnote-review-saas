@@ -22,7 +22,7 @@ export const generationInput = z
     experience: z.string().trim().max(2000),
     answers: answersSchema.optional(),
     locale: z.enum(locales),
-    platform: z.enum(["google", "xiaohongshu"]),
+    platform: z.enum(["google", "xiaohongshu", "facebook", "instagram"]),
     requestKey: z.string().uuid(),
   })
   .strict()
@@ -35,6 +35,8 @@ export type PublicLocation = {
   name: string;
   address: string;
   google_url: string | null;
+  facebook_review_url: string | null;
+  instagram_handle: string | null;
   business_name: string;
   accent: string;
   initials: string;
@@ -293,7 +295,7 @@ export async function writeDraft(input: GenerationInput, businessName: string) {
   }
   return {
     draft: {
-      title: input.platform === "google" ? "" : parsed.data.title,
+      title: input.platform === "xiaohongshu" ? parsed.data.title : "",
       body: parsed.data.body,
       demo: false,
     },
