@@ -454,7 +454,7 @@ export function ReviewForm({
   return (
     <main
       lang={locale}
-      className="review-scene"
+      className={`review-scene${stage === "welcome" ? " review-scene--welcome" : ""}`}
       style={
         {
           "--accent": location.accent,
@@ -503,9 +503,15 @@ export function ReviewForm({
               {location.name}
               {location.address ? " · " + location.address : ""}
             </p>
+            {stage === "welcome" && (
+              <p className="shop-promise">
+                <ShieldCheck size={15} aria-hidden="true" />
+                Honest words, shared on your terms
+              </p>
+            )}
           </div>
         </section>
-        {stage !== "complete" && (
+        {stage !== "welcome" && stage !== "complete" && (
           <div className="review-steps">
             <div className="review-steps-meta">
               <span>{c.step} {step} {c.of} 3</span>
@@ -527,49 +533,35 @@ export function ReviewForm({
         <div className="review-panel" aria-busy={busy}>
           {stage === "welcome" && (
             <section className="welcome-step">
-              <div className="welcome-symbol" aria-hidden="true">
-                <MessageSquareQuote size={30} />
+              <div className="welcome-heading">
+                <p className="welcome-kicker">YOUR EXPERIENCE, YOUR WORDS</p>
+                <h1 tabIndex={-1} ref={headingRef}>{c.choose}</h1>
+                <p className="welcome-bilingual" lang="zh-CN">请选择您最熟悉的语言</p>
               </div>
-              <h1 tabIndex={-1} ref={headingRef}>
-                {c.welcome}
-              </h1>
-              <p className="panel-lead">{c.welcomeHint}</p>
               <fieldset className="language-picker">
-                <legend>{c.choose}</legend>
+                <legend className="sr-only">{c.choose}</legend>
                 <div className="language-tiles">
-                  {Object.entries(languageNames).map(([key, name]) => (
+                  {(["zh-CN", "zh-TW", "en", "ms"] as Locale[]).map((key) => (
                     <button
                       key={key}
                       type="button"
                       className="language-tile"
-                      aria-pressed={locale === key}
                       onClick={() => {
-                        setLocale(key as Locale);
-                        setOutput(key as Locale);
+                        setLocale(key);
+                        setOutput(key);
+                        setMessage("");
+                        setError("");
+                        setStage("visit");
                       }}
                     >
-                      <span>{name}</span>
-                      {locale === key ? (
-                        <Check size={18} />
-                      ) : (
-                        <span className="language-dot" />
-                      )}
+                      <span>{languageNames[key]}</span>
+                      <ArrowRight size={18} aria-hidden="true" />
                     </button>
                   ))}
                 </div>
               </fieldset>
-              <button
-                className="btn full primary-action"
-                onClick={() => {
-                  setStage("visit");
-                  setMessage("");
-                }}
-              >
-                {c.start}
-                <ArrowRight size={19} />
-              </button>
               <p className="quiet-note">
-                <ShieldCheck size={15} />
+                <ShieldCheck size={16} aria-hidden="true" />
                 {c.welcomePrivacy}
               </p>
             </section>
