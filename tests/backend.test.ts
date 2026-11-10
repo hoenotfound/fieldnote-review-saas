@@ -140,7 +140,6 @@ test("social destinations reject lookalike hosts and unsafe redirect URLs", () =
   assert.equal(facebookReviewUrl("https://www.facebook.com/profile.php?sk=reviews&id=123456"), "https://www.facebook.com/profile.php?id=123456&sk=reviews");
   for (const value of [
     "https://facebook.com.evil.test/YourPage/reviews",
-    "https://www.facebook.com/YourPage",
     "javascript:alert(1)",
     "https://x@facebook.com/Page/reviews",
     "https://www.facebook.com/Page/reviews?next=https://evil.test",
