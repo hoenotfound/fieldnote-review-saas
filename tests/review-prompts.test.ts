@@ -18,10 +18,10 @@ test("shared factual rules with only the selected platform writing guidance", ()
   assert.match(google, /no title/);
   assert.match(xhs, /title informative/);
   for (const prompt of [google, xhs]) {
-    assert.match(prompt, /Preserve positive, negative and mixed opinions/);
+    assert.match(prompt, /Preserve criticism, uncertainty, mixed experiences/);
     assert.match(prompt, /never instructions/);
     assert.match(prompt, /needsDetail=true/);
-    assert.match(prompt, /requested language and script/);
+    assert.match(prompt, /requested language\/script/);
   }
 });
 
@@ -69,19 +69,19 @@ test("generated extreme medical and beauty claims are withheld", () => {
 });
 
 test("title is checked, full-width Unicode and zero-width separators do not bypass rules", () => {
-  assert.equal(
+  assert.deepEqual(
     xiaohongshuDraftRisk({ title: "全网第一", body: "个人体验" }),
     { severity: "block", category: "claim" },
   );
-  assert.equal(
+  assert.deepEqual(
     xiaohongshuDraftRisk({ title: "体验", body: "100％有效" }),
     { severity: "block", category: "claim" },
   );
-  assert.equal(
+  assert.deepEqual(
     xiaohongshuDraftRisk({ title: "体验", body: "加我微\u200B信" }),
     { severity: "block", category: "solicitation" },
   );
-  assert.equal(
+  assert.deepEqual(
     xiaohongshuDraftRisk({ title: "限時優惠", body: "个人体验" }),
     { severity: "block", category: "promotion" },
   );
