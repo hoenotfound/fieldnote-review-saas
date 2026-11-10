@@ -736,6 +736,36 @@ export function ReviewForm({
                     <span>{t.xiaohongshu}</span>
                     {platform === "xiaohongshu" && <Check size={16} />}
                   </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-pressed={platform === "facebook"}
+                    onClick={() => {
+                      setPlatform("facebook");
+                      invalidate();
+                    }}
+                  >
+                    <span className="destination-icon facebook-icon" aria-hidden="true">
+                      <Facebook size={24} />
+                    </span>
+                    <span>{t.facebook}</span>
+                    {platform === "facebook" && <Check size={16} />}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-pressed={platform === "instagram"}
+                    onClick={() => {
+                      setPlatform("instagram");
+                      invalidate();
+                    }}
+                  >
+                    <span className="destination-icon instagram-icon" aria-hidden="true">
+                      <Instagram size={24} />
+                    </span>
+                    <span>{t.instagram}</span>
+                    {platform === "instagram" && <Check size={16} />}
+                  </button>
                 </div>
               </fieldset>
               <div className="field output-field">
