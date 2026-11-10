@@ -185,6 +185,7 @@ const cn: Copy = {
   challengePrompt: "请先完成简短验证，才能继续使用 AI。你也可以直接使用自己的文字。",
   challengeFailed: "验证未完成，请重试或使用自己的文字。",
   rateLimited: "目前 AI 请求次数受限。你仍可自行撰写并分享。",
+  unstatedPrice: "AI 加入了你没有填写的价格，草稿未保存。请重试或使用自己的文字。",
 };
 const tw: Copy = {
   badge: "保留你的真實感受",
@@ -268,6 +269,7 @@ const tw: Copy = {
   challengePrompt: "請先完成簡短驗證，才能繼續使用 AI。你也可以直接使用自己的文字。",
   challengeFailed: "驗證未完成，請重試或使用自己的文字。",
   rateLimited: "目前 AI 請求次數受限。你仍可自行撰寫並分享。",
+  unstatedPrice: "AI 加入了你沒有填寫的價格，草稿未儲存。請重試或使用自己的文字。",
 };
 const ms: Copy = {
   badge: "PENGALAMAN ANDA, LEBIH JELAS",
@@ -366,6 +368,7 @@ const ms: Copy = {
   challengeFailed: "Pengesahan belum selesai. Cuba lagi atau guna ayat sendiri.",
   rateLimited:
     "Permintaan AI dihadkan buat sementara. Anda masih boleh menulis dan berkongsi sendiri.",
+  unstatedPrice: "AI menambah harga yang anda tidak berikan. Draf tidak disimpan. Cuba lagi atau tulis sendiri.",
 };
 export const translations: Record<Locale, Copy> = {
   en,
@@ -375,6 +378,7 @@ export const translations: Record<Locale, Copy> = {
 };
 export function errorText(code: string, t: Copy) {
   if (code === "FACEBOOK_NOT_CONFIGURED") return t.facebookUnavailable;
+  if (code === "UNSTATED_PRICE") return t.unstatedPrice;
   if (["QUOTA_EXHAUSTED", "DAILY_LIMIT", "BUSINESS_DAILY_LIMIT"].includes(code)) return t.quota;
   if (["SESSION_RATE_LIMIT", "AI_RATE_LIMIT"].includes(code)) return t.rateLimited;
   if (code === "AI_CHALLENGE_REQUIRED") return t.challengePrompt;

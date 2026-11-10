@@ -65,6 +65,7 @@ export function ReviewForm({
   const [draftLanguage, setDraftLanguage] = useState<Locale>("en");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shareManualSpending, setShareManualSpending] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -76,6 +77,7 @@ export function ReviewForm({
   const restored = useRef(false);
   const requestEpoch = useRef(0);
   const activeGeneration = useRef<AbortController | null>(null);
+  const activeManualSpending = useRef<AbortController | null>(null);
   const kioskExpired = useRef(false);
   const [challengeRequired, setChallengeRequired] = useState(false);
   const [challengeToken, setChallengeToken] = useState("");
@@ -330,6 +332,39 @@ export function ReviewForm({
     setTrialDiagnostic("");
     setMessage("");
     pendingKey.current = null;
+    // Manual reviews work even if the optional analytics service is offline.
+    // No review text is transmitted in the background submission.
+    if (shareManualSpending && answers.spend !== null) {
+      const spend = answers.spend;
+      const epoch = requestEpoch.current;
+      activeManualSpending.current?.abort();
+      const controller = new AbortController();
+      activeManualSpending.current = controller;
+      void (async () => {
+        const guest = await fetch("/api/guest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: location.slug }),
+          signal: controller.signal,
+        });
+        if (!guest.ok) throw new Error("GUEST_UNAVAILABLE");
+        if (epoch !== requestEpoch.current || controller.signal.aborted) return;
+        const stored = await fetch("/api/spending", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: location.slug, spend, consent: true }),
+          signal: controller.signal,
+        });
+        if (!stored.ok) throw new Error("SPENDING_UNAVAILABLE");
+        if (epoch === requestEpoch.current && !controller.signal.aborted)
+          setMessage(q.manualSpendSaved);
+      })().catch(() => {
+        if (epoch === requestEpoch.current && !controller.signal.aborted)
+          setMessage(q.manualSpendFailed);
+      }).finally(() => {
+        if (activeManualSpending.current === controller) activeManualSpending.current = null;
+      });
+    }
     setTimeout(
       () => resultRef.current?.scrollIntoView({ behavior: "smooth" }),
       100,
@@ -348,6 +383,9 @@ export function ReviewForm({
     requestEpoch.current += 1;
     activeGeneration.current?.abort();
     activeGeneration.current = null;
+    activeManualSpending.current?.abort();
+    activeManualSpending.current = null;
+    setShareManualSpending(false);
     setChallengeRequired(false);
     setChallengeToken("");
     setExperience("");
@@ -836,6 +874,17 @@ export function ReviewForm({
                   {!busy && <ArrowRight size={19} />}
                 </button>
               </div>
+              {answers.spend !== null && (
+                <label className="manual-spend-consent">
+                  <input
+                    type="checkbox"
+                    checked={shareManualSpending}
+                    disabled={busy}
+                    onChange={(e) => setShareManualSpending(e.target.checked)}
+                  />
+                  <span>{q.manualSpendConsent}</span>
+                </label>
+              )}
               <button
                 className="btn text manual"
                 disabled={busy || !ready}
