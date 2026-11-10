@@ -110,7 +110,7 @@ export default async function Dashboard({
               Optional, self-reported amounts from successful AI drafts and manually
               shared spending reports. Only the latest submission per customer session
               counts, including cleared amounts. These are estimates, not revenue.
-              Individual amounts are never shown.
+              To protect individual amounts, averages appear only when at least three sessions have reported spending.
             </p>
             <div className="stats">
               {locations.map((location) => {
@@ -118,8 +118,12 @@ export default async function Dashboard({
                 return (
                   <div className="card stat" key={location.id}>
                     <p>{location.name}</p>
-                    <strong>{summary ? "RM " + Number(summary.avg_rm).toFixed(2) : "No data"}</strong>
-                    <small>{summary ? summary.responses + " reported sessions · average amount" : "No sessions with a reported amount"}</small>
+                    <strong>{summary && summary.responses >= 3
+                      ? "RM " + Number(summary.avg_rm).toFixed(2)
+                      : "Not enough data"}</strong>
+                    <small>{summary
+                      ? summary.responses + " reported sessions · average shown from 3 sessions"
+                      : "No sessions with a reported amount"}</small>
                   </div>
                 );
               })}
