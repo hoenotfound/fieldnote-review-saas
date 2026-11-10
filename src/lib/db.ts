@@ -5,7 +5,7 @@ import { Pool } from "pg";
 import { sql } from "drizzle-orm";
 import { readFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
-import { pilotProblems, databaseConnectionUrl } from "./pilot";
+import { pilotProblems, databaseConnectionUrl, expectedDatabaseMarker } from "./pilot";
 import * as schema from "./schema";
 export type DB = PgliteDatabase<typeof schema>;
 const state = globalThis as unknown as {
@@ -30,17 +30,16 @@ async function createDatabase(): Promise<DB> {
       );
       if (marker.rowCount !== 1) throw new Error();
       if (process.env.HOSTING_PROVIDER === "netlify") {
-        const expected = process.env.NETLIFY_TRIAL_MARKER;
-        if (!expected) throw Object.assign(new Error(), {
-          code: "NETLIFY_TRIAL_DATABASE_MISMATCH",
-        });
+        const expected = expectedDatabaseMarker(process.env);
+        const code = process.env.APP_MODE === "production"
+          ? "HD_REVIEW_DATABASE_MISMATCH"
+          : "NETLIFY_TRIAL_DATABASE_MISMATCH";
+        if (!expected) throw Object.assign(new Error(), { code });
         const matched = await pool.query(
           "select 1 from review_app_meta where id = $1",
           [expected],
         );
-        if (matched.rowCount !== 1) throw Object.assign(new Error(), {
-          code: "NETLIFY_TRIAL_DATABASE_MISMATCH",
-        });
+        if (matched.rowCount !== 1) throw Object.assign(new Error(), { code });
       }
       await pool.query("select business_id from business_logo limit 0");
       await pool.query("select questionnaire from business limit 0");
@@ -56,7 +55,7 @@ async function createDatabase(): Promise<DB> {
   }
   if (process.env.APP_MODE !== "local")
     throw new Error(process.env.HOSTING_PROVIDER === "netlify"
-      ? "FIELDNOTE_TRIAL_DATABASE_URL is required for the Netlify trial."
+      ? `${process.env.APP_MODE === "production" ? "HD_REVIEW_DATABASE_URL" : "FIELDNOTE_TRIAL_DATABASE_URL"} is required for Netlify.`
       : "A separate DATABASE_URL is required outside local mode.");
   const dataPath = path.resolve(process.env.LOCAL_DATA_DIR || ".data/local");
   await mkdir(dataPath, { recursive: true });

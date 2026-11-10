@@ -10,6 +10,7 @@ export function safeStartupFailure(stage: string, error: unknown) {
     "28P01": "Database authentication failed.",
     "42501": "The database role lacks a required permission.",
     NETLIFY_TRIAL_DATABASE_MISMATCH: "The database is not the approved isolated Netlify trial database.",
+    HD_REVIEW_DATABASE_MISMATCH: "The database does not have the approved HD Review production marker.",
     "42P01": "A required database table is missing.",
     "42703": "A required database column is missing.",
     ENOTFOUND: "The database hostname could not be resolved.",
@@ -48,12 +49,21 @@ export function safeStartupFailure(stage: string, error: unknown) {
 }
 
 /** Netlify must never use the generic DATABASE_URL from an extension.
- * Upgrade only the approved Neon trial URL to full TLS certificate verification.
- * Never silently downgrade or override an unsafe SSL mode.
+ * Both pilot and production modes require an explicitly approved Neon database URL.
+ * Upgrade the approved Neon URL to full TLS verification without weakening SSL.
  */
+export function expectedDatabaseMarker(env: Record<string, string | undefined>) {
+  if (env.HOSTING_PROVIDER !== "netlify") return undefined;
+  return env.APP_MODE === "production"
+    ? env.HD_REVIEW_DATABASE_MARKER
+    : env.NETLIFY_TRIAL_MARKER;
+}
+
 export function databaseConnectionUrl(env: Record<string, string | undefined>) {
   if (env.HOSTING_PROVIDER !== "netlify") return env.DATABASE_URL;
-  const raw = env.FIELDNOTE_TRIAL_DATABASE_URL;
+  const raw = env.APP_MODE === "production"
+    ? env.HD_REVIEW_DATABASE_URL
+    : env.FIELDNOTE_TRIAL_DATABASE_URL;
   if (!raw) return raw;
   try {
     const db = new URL(raw);
@@ -76,10 +86,11 @@ export function databaseConnectionUrl(env: Record<string, string | undefined>) {
 
 export function pilotProblems(env: Record<string, string | undefined>) {
   const errors: string[] = [];
-  if (env.APP_MODE !== "pilot") errors.push("APP_MODE must be pilot.");
+  if (!["pilot", "production"].includes(env.APP_MODE))
+    errors.push("APP_MODE must be pilot or production.");
   if (env.REVIEW_DATABASE_APPROVED !== "yes")
     errors.push(
-      "Confirm the independent review database with REVIEW_DATABASE_APPROVED=yes.",
+      "Confirm the approved independent review database with REVIEW_DATABASE_APPROVED=yes.",
     );
   try {
     const db = new URL(databaseConnectionUrl(env) || "");
@@ -95,7 +106,7 @@ export function pilotProblems(env: Record<string, string | undefined>) {
       throw new Error();
   } catch {
     errors.push(env.HOSTING_PROVIDER === "netlify"
-      ? "FIELDNOTE_TRIAL_DATABASE_URL must be the pooled Neon trial connection for /fieldnote_trial with sslmode=verify-full; DATABASE_URL is ignored on Netlify."
+      ? `${env.APP_MODE === "production" ? "HD_REVIEW_DATABASE_URL" : "FIELDNOTE_TRIAL_DATABASE_URL"} must be the pooled, approved Neon connection for /fieldnote_trial with sslmode=verify-full; DATABASE_URL is ignored on Netlify.`
       : "Use the separate Neon connection string with TLS enabled.");
   }
   try {
@@ -126,15 +137,22 @@ export function pilotProblems(env: Record<string, string | undefined>) {
       "Configure the server-side Gemini key, model and AI_MODE=gemini.",
     );
   if (env.HOSTING_PROVIDER === "netlify") {
-    // A marker exists only in the isolated trial database, never in Render's
-    // live database. It is checked again during every application cold start.
-    if (!/^fieldnote-netlify-trial-[a-z0-9-]{12,100}$/.test(env.NETLIFY_TRIAL_MARKER || ""))
-      errors.push("NETLIFY_TRIAL_MARKER must identify the isolated Netlify database.");
+    // Mode-specific markers are verified again during every database cold start.
+    // Never accept a production deployment based on the old trial marker alone.
+    const production = env.APP_MODE === "production";
+    const marker = expectedDatabaseMarker(env);
+    const markerPattern = production
+      ? /^hd-review-production-[a-z0-9-]{12,100}$/
+      : /^fieldnote-netlify-trial-[a-z0-9-]{12,100}$/;
+    if (!markerPattern.test(marker || ""))
+      errors.push(`${production ? "HD_REVIEW_DATABASE_MARKER" : "NETLIFY_TRIAL_MARKER"} must identify the approved Neon database.`);
+    if (production && (env.INITIAL_ADMIN_EMAIL || env.INITIAL_ADMIN_PASSWORD))
+      errors.push("Remove initial admin bootstrap credentials before switching to production.");
     const host = (() => {
       try { return new URL(env.APP_ORIGIN || "").hostname; } catch { return ""; }
     })();
     if (!host.endsWith(".netlify.app") || !host || host === ".netlify.app")
-      errors.push("Use the dedicated Netlify trial domain for APP_ORIGIN.");
+      errors.push("Use the dedicated Netlify HTTPS domain for APP_ORIGIN.");
     if (env.RENDER === "true")
       errors.push("Do not enable both Render and Netlify hosting providers.");
   }

@@ -1,16 +1,24 @@
 /**
- * Build-time guard for a separate Netlify trial. Never prints secret values.
- * The application also checks its unique trial DB marker when connecting.
+ * Netlify build preflight for both legacy pilot and reviewed production modes.
+ * Never print environment secrets or database connection strings.
  */
 export function netlifyTrialProblems(env) {
   const errors = [];
+  const isProduction = env.APP_MODE === "production";
+  const dbVariable = isProduction ? "HD_REVIEW_DATABASE_URL" : "FIELDNOTE_TRIAL_DATABASE_URL";
+  const markerVariable = isProduction ? "HD_REVIEW_DATABASE_MARKER" : "NETLIFY_TRIAL_MARKER";
+  const databaseUrl = env[dbVariable];
+  const marker = env[markerVariable];
   if (env.HOSTING_PROVIDER !== "netlify") errors.push("HOSTING_PROVIDER must be netlify.");
   if (env.RENDER === "true") errors.push("Remove Render-only environment variables.");
-  if (env.APP_MODE !== "pilot") errors.push("APP_MODE must be pilot.");
+  if (!["pilot", "production"].includes(env.APP_MODE)) errors.push("APP_MODE must be pilot or production.");
   if (env.REVIEW_DATABASE_APPROVED !== "yes")
-    errors.push("Review and explicitly approve the isolated trial database.");
-  if (!/^fieldnote-netlify-trial-[a-z0-9-]{12,100}$/.test(env.NETLIFY_TRIAL_MARKER || ""))
-    errors.push("Set the marker created in the isolated trial database.");
+    errors.push("Explicitly approve this independent HD Review database.");
+  const markerPattern = isProduction
+    ? /^hd-review-production-[a-z0-9-]{12,100}$/
+    : /^fieldnote-netlify-trial-[a-z0-9-]{12,100}$/;
+  if (!markerPattern.test(marker || ""))
+    errors.push(`Set ${markerVariable} to the marker stored in the approved HD Review database.`);
   let appOrigin = "";
   try {
     const app = new URL(env.APP_ORIGIN || "");
@@ -32,29 +40,29 @@ export function netlifyTrialProblems(env) {
   }
   // The legacy Netlify Neon extension may provide its own database variables.
   // Ignore generic DATABASE_URL and require this project-specific secret.
-  if (!env.FIELDNOTE_TRIAL_DATABASE_URL) {
-    errors.push("Missing FIELDNOTE_TRIAL_DATABASE_URL. Set it in Netlify for Builds and Functions; generic DATABASE_URL is ignored.");
+  if (!databaseUrl) {
+    errors.push(`Missing ${dbVariable}. Set it for Netlify Builds and Functions; generic DATABASE_URL is ignored.`);
   } else {
     try {
-      const db = new URL(env.FIELDNOTE_TRIAL_DATABASE_URL);
+      const db = new URL(databaseUrl);
       if (!["postgres:", "postgresql:"].includes(db.protocol))
-        errors.push("FIELDNOTE_TRIAL_DATABASE_URL must begin with postgresql://.");
+        errors.push(`${dbVariable} must begin with postgresql://.`);
       if (!db.hostname.endsWith(".neon.tech"))
-        errors.push("FIELDNOTE_TRIAL_DATABASE_URL host must end in .neon.tech.");
+        errors.push(`${dbVariable} host must end in .neon.tech.`);
       if (!db.hostname.includes("-pooler."))
-        errors.push("FIELDNOTE_TRIAL_DATABASE_URL must use the Neon pooled host (-pooler).");
+        errors.push(`${dbVariable} must use the Neon pooled host (-pooler).`);
       if (db.pathname !== "/fieldnote_trial")
-        errors.push("FIELDNOTE_TRIAL_DATABASE_URL must select the fieldnote_trial database.");
+        errors.push(`${dbVariable} must select the existing fieldnote_trial database.`);
       // A standard Neon URL uses require. The app upgrades it (or an omitted
       // sslmode) to verify-full before connecting, never weakening TLS.
       const sslModes = db.searchParams.getAll("sslmode");
       if (sslModes.some((mode) => !["require", "verify-full"].includes(mode)))
-        errors.push("FIELDNOTE_TRIAL_DATABASE_URL has an unsupported sslmode; use require or verify-full.");
+        errors.push(`${dbVariable} has an unsupported sslmode; use require or verify-full.`);
       if (!sslModes.some((mode) => !["require", "verify-full"].includes(mode)) &&
           (sslModes.length === 0 || sslModes.some((mode) => mode === "require")))
         console.log("Neon trial TLS: secure connection will be upgraded to sslmode=verify-full.");
     } catch {
-      errors.push("FIELDNOTE_TRIAL_DATABASE_URL must be a valid PostgreSQL connection URL.");
+      errors.push(`${dbVariable} must be a valid PostgreSQL connection URL.`);
     }
   }
   if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32 ||
@@ -69,6 +77,8 @@ export function netlifyTrialProblems(env) {
     errors.push("Set AI_DAILY_ATTEMPT_LIMIT between 1 and 100 for the trial.");
   if (Boolean(env.TURNSTILE_SITE_KEY) !== Boolean(env.TURNSTILE_SECRET_KEY))
     errors.push("Configure both Turnstile keys, or neither until testing the challenge.");
+  if (isProduction && (env.INITIAL_ADMIN_EMAIL || env.INITIAL_ADMIN_PASSWORD))
+    errors.push("Remove INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD before switching to production.");
   return errors;
 }
 
@@ -80,6 +90,6 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
     for (const error of errors) console.error(error);
     process.exitCode = 1;
   } else {
-    console.log("Netlify trial configuration validated. Runtime database marker and device checks remain.");
+    console.log("Netlify configuration validated. Runtime database marker and device checks remain.");
   }
 }

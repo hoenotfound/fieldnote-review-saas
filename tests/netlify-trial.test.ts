@@ -118,3 +118,46 @@ test("Netlify retention calls only its own protected Netlify endpoint", async ()
     }
   }
 });
+
+test("production mode requires its own approved database URL and marker while preserving pilot compatibility", () => {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...config,
+    APP_MODE: "production",
+    HD_REVIEW_DATABASE_URL: config.FIELDNOTE_TRIAL_DATABASE_URL,
+    HD_REVIEW_DATABASE_MARKER: "hd-review-production-morning-cloud-02172364",
+    FIELDNOTE_TRIAL_DATABASE_URL: "",
+    NETLIFY_TRIAL_MARKER: "",
+  };
+  delete env.RENDER;
+  delete env.INITIAL_ADMIN_EMAIL;
+  delete env.INITIAL_ADMIN_PASSWORD;
+  const check = (candidate: NodeJS.ProcessEnv) => spawnSync(
+    process.execPath, ["scripts/check-netlify-trial.mjs"],
+    { encoding: "utf8", env: candidate },
+  );
+  assert.equal(check(env).status, 0, check(env).stderr);
+  assert.deepEqual(pilotProblems(env), []);
+  assert.equal(databaseConnectionUrl(env), env.HD_REVIEW_DATABASE_URL);
+  assert.notEqual(databaseConnectionUrl(env), env.DATABASE_URL);
+  const missingUrl = { ...env, HD_REVIEW_DATABASE_URL: "" };
+  assert.notEqual(check(missingUrl).status, 0);
+  assert.match(check(missingUrl).stderr, /Missing HD_REVIEW_DATABASE_URL/);
+  assert.ok(pilotProblems(missingUrl).length > 0);
+  const missingMarker = { ...env, HD_REVIEW_DATABASE_MARKER: "" };
+  assert.notEqual(check(missingMarker).status, 0);
+  assert.ok(pilotProblems(missingMarker).length > 0);
+  const trialMarkerAlone = { ...env, HD_REVIEW_DATABASE_MARKER: config.NETLIFY_TRIAL_MARKER };
+  assert.notEqual(check(trialMarkerAlone).status, 0);
+  const unsafeTls = { ...env, HD_REVIEW_DATABASE_URL: env.HD_REVIEW_DATABASE_URL!.replace("verify-full", "disable") };
+  assert.notEqual(check(unsafeTls).status, 0);
+  assert.ok(pilotProblems(unsafeTls).length > 0);
+  const oldDatabase = { ...env, HD_REVIEW_DATABASE_URL: env.HD_REVIEW_DATABASE_URL!.replace("/fieldnote_trial?", "/fieldnote?") };
+  assert.notEqual(check(oldDatabase).status, 0);
+  const adminBootstrap = { ...env, INITIAL_ADMIN_PASSWORD: "not-allowed-in-production" };
+  assert.notEqual(check(adminBootstrap).status, 0);
+  assert.ok(pilotProblems(adminBootstrap).length > 0);
+  const standardNeon = { ...env, HD_REVIEW_DATABASE_URL: env.HD_REVIEW_DATABASE_URL!.replace("sslmode=verify-full", "sslmode=require") };
+  assert.equal(check(standardNeon).status, 0);
+  assert.equal(new URL(databaseConnectionUrl(standardNeon)!).searchParams.get("sslmode"), "verify-full");
+});
