@@ -86,7 +86,7 @@ export function databaseConnectionUrl(env: Record<string, string | undefined>) {
 
 export function pilotProblems(env: Record<string, string | undefined>) {
   const errors: string[] = [];
-  if (!["pilot", "production"].includes(env.APP_MODE))
+  if (!["pilot", "production"].includes(env.APP_MODE || ""))
     errors.push("APP_MODE must be pilot or production.");
   if (env.REVIEW_DATABASE_APPROVED !== "yes")
     errors.push(
