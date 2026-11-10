@@ -25,7 +25,7 @@ Local mode uses PGlite, an embedded PostgreSQL build. Run only one app process a
 - One Next.js application with server routes. No Redis, worker service, automated billing or separate AI extraction stage.
 - Two fictional businesses, three locations, persistent branding initials/colour/name, location creation/editing and stable unique QR routes with PNG downloads.
 - English, Simplified Chinese, Traditional Chinese and Malay customer interfaces and independent output-language choices. Business and platform screens are English in this milestone.
-- Three-step customer journey, configurable service choices, balanced detailed-feedback pairs, optional visit details, local photo previews, editable draft, confirmation before copying, Google link handoff and manual Xiaohongshu copying.
+- Three-step customer journey, configurable service choices, balanced detailed-feedback pairs, optional visit details, local photo previews, editable draft, confirmation before copying, Google and Facebook Page Recommendations link handoffs, and manual Xiaohongshu and Instagram sharing.
 - Real Better Auth email/password sign-in, hashed passwords, cookie sessions, disabled public registration and server-side membership/operator checks. Initial staff accounts are provisioned locally, not through public signup.
 - Admin-controlled access expiry, business enable/disable, allowance and explicit usage reset. Expired AI access leaves manual customer writing available; disabling a business hides its public pages.
 - Generation metadata, successful-draft allowance, reservation tracking, duplicate-request protection, per-session attempts, two concurrent calls per business and a global daily attempt cap.
@@ -33,6 +33,13 @@ Local mode uses PGlite, an embedded PostgreSQL build. Run only one app process a
 
 Branding supports a processed public logo, initials, name and colour. Independent branch brand overrides, self-service registration, team roles, automated billing and expanded analytics are not implemented.
 
+## Facebook and Instagram handoffs
+
+Each location can optionally configure a **Facebook Page Reviews/Recommendations link** and an **Instagram business username** in the merchant dashboard. For Facebook, customers copy their draft, open the Page Reviews tab, and personally choose Yes or No. For Instagram, customers get an editable social caption and can copy it, open Instagram, or share original local photos using the phone’s native share sheet when available.
+
+Instagram is not a rated review destination. No login to Meta, API token or publishing permission is needed, and HD Review does not post on behalf of customers, force a tag, or guarantee that Instagram will prefill a caption or attach photos.
+
+**Migration before rollout:** Apply the additive `migrations/005_social_destinations.sql` to the verified independent HD Review database before deploying code that selects the new location fields. The guarded `npm run migrate` procedure requires the existing-database confirmation. Existing QR codes, Google links, locations and drafts are preserved. Test the Facebook Page link on a phone because some Pages do not enable Recommendations.
 ## AI and spending controls
 
 Set `AI_MODE=gemini`, a new project-specific `GEMINI_API_KEY`, and a tested `GEMINI_MODEL` only after approving live tests. Never reuse DA Chatbot credentials. No live Gemini call was made during this milestone.
