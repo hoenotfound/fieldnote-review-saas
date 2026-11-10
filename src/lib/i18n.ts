@@ -373,6 +373,7 @@ export const translations: Record<Locale, Copy> = {
   ms,
 };
 export function errorText(code: string, t: Copy) {
+  if (code === "FACEBOOK_NOT_CONFIGURED") return t.facebookUnavailable;
   if (["QUOTA_EXHAUSTED", "DAILY_LIMIT", "BUSINESS_DAILY_LIMIT"].includes(code)) return t.quota;
   if (["SESSION_RATE_LIMIT", "AI_RATE_LIMIT"].includes(code)) return t.rateLimited;
   if (code === "AI_CHALLENGE_REQUIRED") return t.challengePrompt;
