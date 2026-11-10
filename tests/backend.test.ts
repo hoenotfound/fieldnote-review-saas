@@ -22,6 +22,7 @@ import {
   generate,
   sweep,
   finishGuest,
+  publicLocation,
   type GenerationInput,
   writeDraft,
 } from "../src/lib/reviews";
@@ -165,6 +166,24 @@ test("both new platforms pass request validation", async () => {
   }
   assert.equal(generationInput.safeParse(input({ platform: "other" as GenerationInput["platform"] })).success, false);
 });
+test("merchant social settings persist and reach only their public location", async () => {
+  const url = facebookReviewUrl("https://m.facebook.com/YourPage/?ref=page_internal");
+  const handle = instagramHandle("@yourbusiness");
+  try {
+    await db.execute(
+      sql`update location set facebook_review_url=${url}, instagram_handle=${handle} where id='a'`,
+    );
+    const location = await publicLocation("a");
+    assert.equal(location?.facebook_review_url, "https://www.facebook.com/YourPage/reviews");
+    assert.equal(location?.instagram_handle, "yourbusiness");
+    assert.equal((await publicLocation("b"))?.facebook_review_url, null);
+  } finally {
+    await db.execute(
+      sql`update location set facebook_review_url=null, instagram_handle=null where id='a'`,
+    );
+  }
+});
+
 test("mutations reject absent or foreign origin", () => {
   assert.throws(() =>
     requireOrigin(new Request("http://localhost/api/manage")),
