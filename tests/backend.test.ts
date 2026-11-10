@@ -529,6 +529,47 @@ test("authenticated management and QR endpoints enforce business ownership", asy
   );
   assert.deepEqual((await publicLocation("b"))?.questionnaire?.items, []);
 
+  // Exercise the authenticated location-save route, not just direct SQL writes.
+  const locationSave = (
+    businessId: string,
+    facebookReviewUrlValue: string,
+    instagramHandleValue: string,
+  ) => new Request(base + "/api/manage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", origin: base, cookie },
+    body: JSON.stringify({
+      action: "location",
+      businessId,
+      id: "a",
+      name: "a",
+      address: "Fictional address",
+      googleUrl: "",
+      facebookReviewUrl: facebookReviewUrlValue,
+      instagramHandle: instagramHandleValue,
+      active: true,
+    }),
+  });
+  assert.equal(
+    (await POST(locationSave("b", "https://www.facebook.com/YourPage", "@yourbusiness"))).status,
+    404,
+  );
+  assert.equal(
+    (await POST(locationSave("a", "https://m.facebook.com/YourPage/?ref=page_internal", "@yourbusiness"))).status,
+    200,
+  );
+  assert.equal((await publicLocation("a"))?.facebook_review_url, "https://www.facebook.com/YourPage/reviews");
+  assert.equal((await publicLocation("a"))?.instagram_handle, "yourbusiness");
+  assert.equal((await publicLocation("b"))?.facebook_review_url, null);
+  assert.equal((await publicLocation("b"))?.instagram_handle, null);
+  assert.equal(
+    (await POST(locationSave("a", "https://facebook.com.evil.test/YourPage/reviews", "@bad"))).status,
+    400,
+  );
+  assert.equal((await publicLocation("a"))?.facebook_review_url, "https://www.facebook.com/YourPage/reviews");
+  assert.equal((await POST(locationSave("a", "", ""))).status, 200);
+  assert.equal((await publicLocation("a"))?.facebook_review_url, null);
+  assert.equal((await publicLocation("a"))?.instagram_handle, null);
+
   assert.equal(
     (
       await GET(new Request(base + "/api/qr/b", { headers: { cookie } }), {
