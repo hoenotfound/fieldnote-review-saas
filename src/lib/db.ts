@@ -43,6 +43,8 @@ async function createDatabase(): Promise<DB> {
       }
       await pool.query("select business_id from business_logo limit 0");
       await pool.query("select questionnaire from business limit 0");
+      // Fail startup clearly if the additive social-destinations migration was missed.
+      await pool.query("select facebook_review_url, instagram_handle from location limit 0");
     } catch (cause) {
       await pool.end();
       throw new Error(
