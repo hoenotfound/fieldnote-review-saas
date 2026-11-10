@@ -35,8 +35,8 @@ export type PublicLocation = {
   name: string;
   address: string;
   google_url: string | null;
-  facebook_review_url: string | null;
-  instagram_handle: string | null;
+  facebook_review_url?: string | null;
+  instagram_handle?: string | null;
   business_name: string;
   accent: string;
   initials: string;
