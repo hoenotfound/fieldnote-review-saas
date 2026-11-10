@@ -183,6 +183,51 @@ test("merchant social settings persist and reach only their public location", as
   }
 });
 
+test("direct Facebook generation with no Page link rejects before provider or quota usage", async () => {
+  const id = await guest();
+  const attempted = input({ platform: "facebook" });
+  let providerCalls = 0;
+  const provider = async (i: GenerationInput) => {
+    providerCalls++;
+    return fake(i);
+  };
+  const usage = async () => ({
+    business: (await rows<{ used: number; reserved: number }>(
+      sql`select used, reserved from business where id='a'`,
+    ))[0],
+    guest: (await rows<{ attempts: number }>(
+      sql`select attempts from guest_session where id=${id}`,
+    ))[0].attempts,
+    global: (await rows<{ attempts: number }>(
+      sql`select coalesce((select attempts from ai_daily_budget where day=current_date),0) as attempts`,
+    ))[0].attempts,
+    perBusiness: (await rows<{ attempts: number }>(
+      sql`select coalesce((select attempts from business_daily_budget where business_id='a' and day=current_date),0) as attempts`,
+    ))[0].attempts,
+    generations: (await rows<{ count: number }>(
+      sql`select count(*)::int as count from generation where guest_id=${id}`,
+    ))[0].count,
+  });
+  const before = await usage();
+  assert.equal((await publicLocation("a"))?.facebook_review_url, null);
+  await assert.rejects(
+    generate(attempted, id, provider),
+    (e: unknown) => e instanceof AppError && e.code === "FACEBOOK_NOT_CONFIGURED" && e.status === 422,
+  );
+  assert.equal(providerCalls, 0);
+  assert.deepEqual(await usage(), before);
+  // After merchant configuration, that same valid request should work.
+  await db.execute(sql`update location set facebook_review_url='https://www.facebook.com/TestPage/reviews' where id='a'`);
+  try {
+    const draft = await generate(attempted, id, provider);
+    assert.equal(draft.body, attempted.experience);
+    assert.equal(providerCalls, 1);
+    assert.equal((await usage()).business.used, before.business.used + 1);
+  } finally {
+    await db.execute(sql`update location set facebook_review_url=null where id='a'`);
+  }
+});
+
 test("mutations reject absent or foreign origin", () => {
   assert.throws(() =>
     requireOrigin(new Request("http://localhost/api/manage")),
