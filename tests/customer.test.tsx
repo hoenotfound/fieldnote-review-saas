@@ -752,7 +752,9 @@ test("AI use is disclosed without a required checkbox in all four languages", as
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
   await u.click(r.getByRole("button", { name: "English" }));
-  assert.ok(r.getByText(/Selecting Generate sends your text/));
+  assert.ok(r.getByText(/By selecting Generate my review draft, I explicitly consent/));
+  assert.ok(r.getByText(/health details I choose to enter/));
+  assert.ok(r.getByRole("link", { name: "Privacy information" }));
   assert.equal(r.queryByRole("checkbox"), null);
   const generate = r.getByRole("button", { name: "Generate my review draft" }) as HTMLButtonElement;
   assert.equal(generate.disabled, true);
@@ -804,5 +806,81 @@ test("original selected photos download locally for Google and Xiaohongshu, with
   } finally {
     URL.createObjectURL = oldCreate;
     URL.revokeObjectURL = oldRevoke;
+  }
+});
+
+test("mobile native share uses the original selected image and keeps download fallback", async () => {
+  const u = userEvent.setup();
+  const priorShare = Object.getOwnPropertyDescriptor(navigator, "share");
+  const priorCanShare = Object.getOwnPropertyDescriptor(navigator, "canShare");
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  const calls: ShareData[] = [];
+  URL.createObjectURL = () => "blob:original-image";
+  URL.revokeObjectURL = () => {};
+  Object.defineProperty(navigator, "canShare", {
+    configurable: true,
+    value: (data: ShareData) => Boolean(data.files?.[0]?.name === "customer-photo.jpg"),
+  });
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: async (data: ShareData) => { calls.push(data); },
+  });
+  try {
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await u.click(r.getByRole("button", { name: "English" }));
+    await u.click(r.getByText("Add photos (optional)"));
+    const original = new window.File(["original-bytes"], "customer-photo.jpg", { type: "image/jpeg" });
+    await u.upload(r.getByLabelText(/Add a photo preview/), original);
+    await u.type(r.getByLabelText("What stood out?"), "Friendly service, worth mentioning.");
+    await u.click(r.getByRole("button", { name: "Write without AI" }));
+    const share = r.getByRole("button", { name: "Share / Save: customer-photo.jpg" });
+    assert.ok(r.getByRole("link", { name: "Download photo: customer-photo.jpg" }));
+    await u.click(share);
+    assert.equal(calls.length, 1);
+    assert.strictEqual(calls[0].files?.[0], original);
+    assert.equal(calls[0].files?.[0].type, "image/jpeg");
+    assert.equal(r.queryByText(/Sharing is not available here/), null);
+    await u.click(r.getByRole("button", { name: "Finish & clear" }));
+    assert.equal(r.queryByRole("button", { name: "Share / Save: customer-photo.jpg" }), null);
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    if (priorShare) Object.defineProperty(navigator, "share", priorShare);
+    else Reflect.deleteProperty(navigator, "share");
+    if (priorCanShare) Object.defineProperty(navigator, "canShare", priorCanShare);
+    else Reflect.deleteProperty(navigator, "canShare");
+  }
+});
+
+test("photo download remains visible when native file sharing is unsupported", async () => {
+  const u = userEvent.setup();
+  const priorShare = Object.getOwnPropertyDescriptor(navigator, "share");
+  const priorCanShare = Object.getOwnPropertyDescriptor(navigator, "canShare");
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  URL.createObjectURL = () => "blob:fallback-image";
+  URL.revokeObjectURL = () => {};
+  Object.defineProperty(navigator, "canShare", { configurable: true, value: () => false });
+  Object.defineProperty(navigator, "share", { configurable: true, value: async () => {} });
+  try {
+    const r = testing.render(<ReviewForm location={loc} local />);
+    await u.click(r.getByRole("button", { name: "English" }));
+    await u.click(r.getByText("Add photos (optional)"));
+    await u.upload(
+      r.getByLabelText(/Add a photo preview/),
+      new window.File(["data"], "original.png", { type: "image/png" }),
+    );
+    await u.type(r.getByLabelText("What stood out?"), "An authentic experience I can describe.");
+    await u.click(r.getByRole("button", { name: "Write without AI" }));
+    assert.equal(r.queryByRole("button", { name: /Share \/ Save/ }), null);
+    assert.ok(r.getByRole("link", { name: "Download photo: original.png" }));
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    if (priorShare) Object.defineProperty(navigator, "share", priorShare);
+    else Reflect.deleteProperty(navigator, "share");
+    if (priorCanShare) Object.defineProperty(navigator, "canShare", priorCanShare);
+    else Reflect.deleteProperty(navigator, "canShare");
   }
 });
