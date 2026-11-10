@@ -515,6 +515,17 @@
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 4%, #fff);
 }
+.destination-tiles button:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+  background: #f5f7f9;
+}
+.destination-unavailable {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--review-muted);
+  line-height: 1.5;
+}
 .destination-tiles button > svg:last-child {
   margin-left: auto;
   flex-shrink: 0;
@@ -708,6 +719,25 @@
 }
 .share-actions > .btn {
   flex: 1;
+}
+.instagram-sharing-guide {
+  border: 1px solid var(--review-border);
+  border-radius: 12px;
+  padding: 15px 17px;
+  background: #f8fafc;
+  margin: 14px 0 22px;
+}
+.instagram-sharing-guide h2 {
+  font-size: 16px;
+  font-weight: 720;
+  color: var(--review-ink);
+  margin: 0 0 6px;
+}
+.instagram-sharing-guide p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--review-muted);
+  margin: 6px 0 0;
 }
 .handoff-help {
   font-size: 14px;
