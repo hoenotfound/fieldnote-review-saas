@@ -23,6 +23,8 @@ export type Location = {
   name: string;
   address: string;
   google_url: string | null;
+  facebook_review_url: string | null;
+  instagram_handle: string | null;
   active: boolean;
   slug: string;
   qr_code: string;
@@ -145,6 +147,8 @@ export function LocationForm({
           name: d.get("name"),
           address: d.get("address"),
           googleUrl: d.get("googleUrl"),
+          facebookReviewUrl: d.get("facebookReviewUrl"),
+          instagramHandle: d.get("instagramHandle"),
           active: d.get("active") === "on",
         });
         if (ok && !l) form.reset();
