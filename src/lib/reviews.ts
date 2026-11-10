@@ -286,7 +286,7 @@ export async function writeDraft(input: GenerationInput, businessName: string) {
   if (input.platform === "xiaohongshu") {
     // Never hand out generated promotional/unsafe wording; preserve user input.
     // No second Gemini call is made, and failed drafts do not consume a business credit.
-    if (xiaohongshuDraftRisk(parsed.data))
+    if (xiaohongshuDraftRisk(parsed.data)?.severity === "block")
       throw new AppError("DRAFT_REVIEW_REQUIRED", 422);
     if (!parsed.data.title.trim())
       throw new AppError("INVALID_AI_OUTPUT", 503);
