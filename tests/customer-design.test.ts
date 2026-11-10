@@ -51,3 +51,11 @@ test("mobile review options keep touch targets, strong focus, and narrow-screen 
 
   assert.match(css, /\.review-progress li\.current\s*\{ background: var\(--accent\);/);
 });
+
+test("language-first welcome is single-column and uses its own lavender identity", () => {
+  assert.match(css, /\.review-scene--welcome\s*\{/);
+  assert.match(css, /linear-gradient\(165deg, #f9f7ff/);
+  assert.match(css, /\.review-scene--welcome \.language-tiles\s*\{[^}]*grid-template-columns:\s*1fr;/s);
+  assert.match(css, /\.review-scene--welcome \.language-tile[^}]*min-height:\s*64px/s);
+  assert.match(css, /\.review-scene--welcome \.shop-heading \.business-mark\s*\{[^}]*width:\s*90px;/s);
+});

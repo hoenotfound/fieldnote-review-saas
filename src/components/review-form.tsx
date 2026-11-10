@@ -18,7 +18,6 @@ import {
   ArrowRight,
   ImagePlus,
   ShieldCheck,
-  MessageSquareQuote,
   Check,
   Copy,
   LoaderCircle,
