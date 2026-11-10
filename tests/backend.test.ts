@@ -10,6 +10,8 @@ import {
   requireBusiness,
   requirePlatform,
   googleUrl,
+  facebookReviewUrl,
+  instagramHandle,
   requireOrigin,
   AppError,
   hash,
@@ -121,6 +123,33 @@ test("Google links reject script, credentials and lookalike hosts", () => {
     "https://g.page:444/x",
   ])
     assert.throws(() => googleUrl(value));
+});
+test("social destinations reject lookalike hosts and unsafe redirect URLs", () => {
+  assert.equal(facebookReviewUrl(null), null);
+  assert.equal(instagramHandle(""), null);
+  assert.equal(instagramHandle("@yourbusiness"), "yourbusiness");
+  assert.ok(facebookReviewUrl("https://www.facebook.com/YourPage/reviews"));
+  assert.ok(facebookReviewUrl("https://www.facebook.com/profile.php?id=123456&sk=reviews"));
+  for (const value of [
+    "https://facebook.com.evil.test/YourPage/reviews",
+    "https://www.facebook.com/YourPage",
+    "javascript:alert(1)",
+    "https://x@facebook.com/Page/reviews",
+    "https://www.facebook.com/Page/reviews?next=https://evil.test",
+  ]) assert.throws(() => facebookReviewUrl(value));
+  for (const value of [
+    "https://instagram.com/yourbusiness",
+    "@name/redirect",
+    "my..brand",
+    "a".repeat(31),
+  ]) assert.throws(() => instagramHandle(value));
+});
+test("both new platforms pass request validation", async () => {
+  const { generationInput } = await import("../src/lib/reviews");
+  for (const platform of ["google", "xiaohongshu", "facebook", "instagram"] as const) {
+    assert.equal(generationInput.safeParse(input({ platform })).success, true);
+  }
+  assert.equal(generationInput.safeParse(input({ platform: "other" as GenerationInput["platform"] })).success, false);
 });
 test("mutations reject absent or foreign origin", () => {
   assert.throws(() =>
