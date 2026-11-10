@@ -29,6 +29,8 @@ import {
   Globe2,
   Sparkles,
   X,
+  Facebook,
+  Instagram,
 } from "lucide-react";
 import {
   languageNames,
@@ -37,7 +39,7 @@ import {
   type Locale,
 } from "@/lib/i18n";
 import type { PublicLocation, Draft } from "@/lib/reviews";
-import { xiaohongshuDraftRisk } from "@/lib/review-prompts";
+import { xiaohongshuDraftRisk, type ReviewPlatform } from "@/lib/review-prompts";
 type Photo = { url: string; name: string; file: File };
 export function ReviewForm({
   location,
@@ -54,7 +56,7 @@ export function ReviewForm({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [locale, setLocale] = useState<Locale>("en");
   const [output, setOutput] = useState<Locale>("en");
-  const [platform, setPlatform] = useState<"google" | "xiaohongshu">("google");
+  const [platform, setPlatform] = useState<ReviewPlatform>("google");
   const [experience, setExperience] = useState("");
   const [answers, setAnswers] = useState<Answers>(emptyAnswers);
   const config = readConfig(location.questionnaire);
@@ -84,6 +86,9 @@ export function ReviewForm({
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("kiosk") === "1";
   const t = translations[locale];
+  const instagramUrl = location.instagram_handle
+    ? "https://www.instagram.com/" + encodeURIComponent(location.instagram_handle) + "/"
+    : "https://www.instagram.com/";
   const storageKey = "fieldnote:" + location.slug;
   const isNetlifyTrial = location.business_id === "netlify-trial-only" && location.slug === "netlify-demo";
   useEffect(() => {
@@ -104,8 +109,8 @@ export function ReviewForm({
           if (old.output in translations) setOutput(old.output);
           if ((old.draftLanguage || old.output) in translations)
             setDraftLanguage(old.draftLanguage || old.output);
-          if (["google", "xiaohongshu"].includes(old.platform))
-            setPlatform(old.platform);
+          if (["google", "xiaohongshu", "facebook", "instagram"].includes(old.platform))
+            setPlatform(old.platform as ReviewPlatform);
           const savedAnswers = answersSchema.safeParse(old.answers);
           if (savedAnswers.success && old.configVersion === configVersion) {
             // An older draft may have a first-visit answer from the removed UI.
@@ -828,7 +833,7 @@ export function ReviewForm({
                 <p className="panel-lead">{c.draftHint}</p>
               </div>
               <div className="draft-meta">
-                <span>{platform === "google" ? t.google : t.xiaohongshu}</span>
+                <span>{t[platform]}</span>
                 <span>{languageNames[draftLanguage]}</span>
               </div>
               {draft.demo && <div className="notice">{t.demo}</div>}
@@ -845,7 +850,7 @@ export function ReviewForm({
                 </div>
               )}
               <div className="field">
-                <label htmlFor="draft-body">{t.body}</label>
+                <label htmlFor="draft-body">{platform === "instagram" ? t.caption : t.body}</label>
                 <textarea
                   id="draft-body"
                   disabled={busy}
@@ -907,7 +912,7 @@ export function ReviewForm({
                   onClick={() => copy(draft.body)}
                 >
                   <Copy size={18} />
-                  {t.copy}
+                  {platform === "instagram" ? t.copyCaption : t.copy}
                 </button>
                 {platform === "xiaohongshu" && (
                   <button
