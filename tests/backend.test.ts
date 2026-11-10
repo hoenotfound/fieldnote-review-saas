@@ -23,7 +23,7 @@ import {
   type GenerationInput,
   writeDraft,
 } from "../src/lib/reviews";
-import { makeAuth } from "../src/lib/auth";
+import { makeAuth, origin } from "../src/lib/auth";
 import { translations } from "../src/lib/i18n";
 let userId = "";
 let db: DB;
@@ -138,6 +138,40 @@ test("mutations reject absent or foreign origin", () => {
       headers: { origin: process.env.APP_ORIGIN! },
     }),
   );
+});
+test("Netlify trial permits a trailing slash in APP_ORIGIN without weakening origin checks", () => {
+  const previousOrigin = process.env.APP_ORIGIN;
+  const previousHost = process.env.HOSTING_PROVIDER;
+  try {
+    process.env.APP_ORIGIN = "https://fieldnote-review.netlify.app/";
+    // Browser-sent Origin has no trailing slash. Configuration may have one.
+    assert.equal(origin(), "https://fieldnote-review.netlify.app");
+    requireOrigin(new Request("https://fieldnote-review.netlify.app/api/guest", {
+      method: "POST",
+      headers: { origin: "https://fieldnote-review.netlify.app" },
+    }));
+    delete process.env.HOSTING_PROVIDER;
+    for (const candidate of [
+      "https://fieldnote-review.netlify.app.evil.test",
+      "https://evil.test",
+      "null",
+    ]) {
+      assert.throws(() => requireOrigin(new Request(
+        "https://fieldnote-review.netlify.app/api/guest",
+        { method: "POST", headers: { origin: candidate } },
+      )), (e: unknown) => e instanceof AppError &&
+        e.code === "ORIGIN_REJECTED" && e.status === 403);
+    }
+    assert.throws(() => requireOrigin(new Request(
+      "https://fieldnote-review.netlify.app/api/guest",
+      { method: "POST" },
+    )), (e: unknown) => e instanceof AppError && e.status === 403);
+  } finally {
+    if (previousOrigin === undefined) delete process.env.APP_ORIGIN;
+    else process.env.APP_ORIGIN = previousOrigin;
+    if (previousHost === undefined) delete process.env.HOSTING_PROVIDER;
+    else process.env.HOSTING_PROVIDER = previousHost;
+  }
 });
 test("encrypted cache round-trips without retaining plaintext", () => {
   const secret = "my unpublished review";

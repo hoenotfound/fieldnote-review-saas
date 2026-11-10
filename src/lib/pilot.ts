@@ -9,6 +9,7 @@ export function safeStartupFailure(stage: string, error: unknown) {
   const reasons: Record<string, string> = {
     "28P01": "Database authentication failed.",
     "42501": "The database role lacks a required permission.",
+    NETLIFY_TRIAL_DATABASE_MISMATCH: "The database is not the approved isolated Netlify trial database.",
     "42P01": "A required database table is missing.",
     "42703": "A required database column is missing.",
     ENOTFOUND: "The database hostname could not be resolved.",
@@ -46,6 +47,33 @@ export function safeStartupFailure(stage: string, error: unknown) {
   return `Pilot check failed at ${safeStage}. Check the database, account settings and server configuration. No credentials are printed.`;
 }
 
+/** Netlify must never use the generic DATABASE_URL from an extension.
+ * Upgrade only the approved Neon trial URL to full TLS certificate verification.
+ * Never silently downgrade or override an unsafe SSL mode.
+ */
+export function databaseConnectionUrl(env: Record<string, string | undefined>) {
+  if (env.HOSTING_PROVIDER !== "netlify") return env.DATABASE_URL;
+  const raw = env.FIELDNOTE_TRIAL_DATABASE_URL;
+  if (!raw) return raw;
+  try {
+    const db = new URL(raw);
+    const sslModes = db.searchParams.getAll("sslmode");
+    if (
+      !["postgres:", "postgresql:"].includes(db.protocol) ||
+      !db.hostname.endsWith(".neon.tech") ||
+      !db.hostname.includes("-pooler.") ||
+      db.pathname !== "/fieldnote_trial" ||
+      sslModes.some((mode) => mode !== "require" && mode !== "verify-full")
+    ) return raw;
+    // Normalizes an omitted mode, Neon default require, or duplicate secure
+    // sslmode parameters to one explicit verify-full before pg sees the URL.
+    db.searchParams.set("sslmode", "verify-full");
+    return db.toString();
+  } catch {
+    return raw;
+  }
+}
+
 export function pilotProblems(env: Record<string, string | undefined>) {
   const errors: string[] = [];
   if (env.APP_MODE !== "pilot") errors.push("APP_MODE must be pilot.");
@@ -54,15 +82,21 @@ export function pilotProblems(env: Record<string, string | undefined>) {
       "Confirm the independent review database with REVIEW_DATABASE_APPROVED=yes.",
     );
   try {
-    const db = new URL(env.DATABASE_URL || "");
+    const db = new URL(databaseConnectionUrl(env) || "");
     if (
       !["postgres:", "postgresql:"].includes(db.protocol) ||
       !db.hostname.endsWith(".neon.tech") ||
-      !["require", "verify-full"].includes(db.searchParams.get("sslmode") || "")
+      !["require", "verify-full"].includes(db.searchParams.get("sslmode") || "") ||
+      (env.HOSTING_PROVIDER === "netlify" &&
+        (db.pathname !== "/fieldnote_trial" ||
+         db.searchParams.get("sslmode") !== "verify-full" ||
+         !db.hostname.includes("-pooler.")))
     )
       throw new Error();
   } catch {
-    errors.push("Use the separate Neon connection string with TLS enabled.");
+    errors.push(env.HOSTING_PROVIDER === "netlify"
+      ? "FIELDNOTE_TRIAL_DATABASE_URL must be the pooled Neon trial connection for /fieldnote_trial with sslmode=verify-full; DATABASE_URL is ignored on Netlify."
+      : "Use the separate Neon connection string with TLS enabled.");
   }
   try {
     const url = new URL(env.APP_ORIGIN || "");
@@ -91,6 +125,19 @@ export function pilotProblems(env: Record<string, string | undefined>) {
     errors.push(
       "Configure the server-side Gemini key, model and AI_MODE=gemini.",
     );
+  if (env.HOSTING_PROVIDER === "netlify") {
+    // A marker exists only in the isolated trial database, never in Render's
+    // live database. It is checked again during every application cold start.
+    if (!/^fieldnote-netlify-trial-[a-z0-9-]{12,100}$/.test(env.NETLIFY_TRIAL_MARKER || ""))
+      errors.push("NETLIFY_TRIAL_MARKER must identify the isolated Netlify database.");
+    const host = (() => {
+      try { return new URL(env.APP_ORIGIN || "").hostname; } catch { return ""; }
+    })();
+    if (!host.endsWith(".netlify.app") || !host || host === ".netlify.app")
+      errors.push("Use the dedicated Netlify trial domain for APP_ORIGIN.");
+    if (env.RENDER === "true")
+      errors.push("Do not enable both Render and Netlify hosting providers.");
+  }
   const limit = Number(env.AI_DAILY_ATTEMPT_LIMIT);
   if (!Number.isInteger(limit) || limit < 1 || limit > 10000)
     errors.push("Set an explicit daily AI attempt limit from 1 to 10000.");

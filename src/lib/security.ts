@@ -72,8 +72,26 @@ export async function readLimitedJson(req: Request, maxBytes: number): Promise<u
   }
 }
 export function requireOrigin(req: Request) {
-  if (req.headers.get("origin") !== origin())
+  const expectedOrigin = origin();
+  const requestOrigin = req.headers.get("origin");
+  if (requestOrigin !== expectedOrigin) {
+    if (process.env.HOSTING_PROVIDER === "netlify") {
+      // Only log public hostnames and presence flags. Never log the incoming
+      // body, cookies, review text, tokens or configuration secrets.
+      let requestHostname = "missing-or-invalid";
+      try {
+        if (requestOrigin) requestHostname = new URL(requestOrigin).hostname;
+      } catch {}
+      console.warn(JSON.stringify({
+        route: "origin-check",
+        error_code: "ORIGIN_REJECTED",
+        expected_host: new URL(expectedOrigin).hostname,
+        received_host: requestHostname,
+        origin_present: Boolean(requestOrigin),
+      }));
+    }
     throw new AppError("ORIGIN_REJECTED", 403);
+  }
 }
 export async function actor(headers: Headers) {
   const s = await (await getAuth()).api.getSession({ headers });

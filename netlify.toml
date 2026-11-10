@@ -1,0 +1,9 @@
+# HD Review Netlify build. Continue to enforce the isolated Neon trial database marker.
+# Check other hosting providers before using the same Git branch for production.
+# Netlify's maintained OpenNext adapter handles Next.js App Router and API routes.
+[build]
+  command = "npm run netlify:build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "24"

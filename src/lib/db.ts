@@ -5,7 +5,7 @@ import { Pool } from "pg";
 import { sql } from "drizzle-orm";
 import { readFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
-import { pilotProblems } from "./pilot";
+import { pilotProblems, databaseConnectionUrl } from "./pilot";
 import * as schema from "./schema";
 export type DB = PgliteDatabase<typeof schema>;
 const state = globalThis as unknown as {
@@ -13,13 +13,14 @@ const state = globalThis as unknown as {
   reviewClose?: () => Promise<void>;
 };
 async function createDatabase(): Promise<DB> {
-  if (process.env.DATABASE_URL) {
+  const connectionString = databaseConnectionUrl(process.env);
+  if (connectionString) {
     if (pilotProblems(process.env).length)
       throw new Error(
         "Pilot configuration is incomplete. Run npm run pilot:check.",
       );
     const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString,
       max: 5,
       connectionTimeoutMillis: 5000,
     });
@@ -28,6 +29,19 @@ async function createDatabase(): Promise<DB> {
         "select id from review_app_meta where id='independent-review-mvp-v1'",
       );
       if (marker.rowCount !== 1) throw new Error();
+      if (process.env.HOSTING_PROVIDER === "netlify") {
+        const expected = process.env.NETLIFY_TRIAL_MARKER;
+        if (!expected) throw Object.assign(new Error(), {
+          code: "NETLIFY_TRIAL_DATABASE_MISMATCH",
+        });
+        const matched = await pool.query(
+          "select 1 from review_app_meta where id = $1",
+          [expected],
+        );
+        if (matched.rowCount !== 1) throw Object.assign(new Error(), {
+          code: "NETLIFY_TRIAL_DATABASE_MISMATCH",
+        });
+      }
       await pool.query("select business_id from business_logo limit 0");
       await pool.query("select questionnaire from business limit 0");
     } catch (cause) {
@@ -41,7 +55,9 @@ async function createDatabase(): Promise<DB> {
     return pgDrizzle(pool, { schema }) as unknown as DB;
   }
   if (process.env.APP_MODE !== "local")
-    throw new Error("A separate DATABASE_URL is required outside local mode.");
+    throw new Error(process.env.HOSTING_PROVIDER === "netlify"
+      ? "FIELDNOTE_TRIAL_DATABASE_URL is required for the Netlify trial."
+      : "A separate DATABASE_URL is required outside local mode.");
   const dataPath = path.resolve(process.env.LOCAL_DATA_DIR || ".data/local");
   await mkdir(dataPath, { recursive: true });
   const client = new PGlite(dataPath);

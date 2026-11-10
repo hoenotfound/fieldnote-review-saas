@@ -34,6 +34,14 @@ export async function POST(req: Request) {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (e) {
+    if (process.env.HOSTING_PROVIDER === "netlify") {
+      // Safe function diagnostics; never log incoming text, URLs or secrets.
+      console.warn(JSON.stringify({
+        route: "generate",
+        error_code: e instanceof AppError ? e.code : "REQUEST_FAILED",
+        status: e instanceof AppError ? e.status : 500,
+      }));
+    }
     return errorResponse(e);
   }
 }

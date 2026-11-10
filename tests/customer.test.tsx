@@ -41,7 +41,7 @@ afterEach(() => {
 test("manual draft requires confirmation; editing resets approval", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.type(
     r.getByLabelText("What stood out?"),
     "The soup was tasty but the wait was long.",
@@ -63,7 +63,7 @@ test("manual draft requires confirmation; editing resets approval", async () => 
 test("switching interface language preserves original text and shows translated controls", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.type(
     r.getByLabelText("What stood out?"),
     "Food was good but service was slow.",
@@ -75,6 +75,46 @@ test("switching interface language preserves original text and shows translated 
   );
   assert.ok(r.getByRole("button", { name: "不使用 AI，自己写" }));
 });
+test("Netlify trial identifies a failed guest session without exposing response content", async () => {
+  let aiCalled = false;
+  globalThis.fetch = async url => {
+    if (String(url) === "/api/guest")
+      return new Response("<html>private backend failure</html>", { status: 502, headers: { "content-type": "text/html" } });
+    aiCalled = true;
+    return Response.json({ title: "", body: "unexpected", demo: false });
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm
+    location={{ ...loc, business_id: "netlify-trial-only", slug: "netlify-demo" }}
+    local={false}
+  />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.type(r.getByLabelText("What stood out?"), "The staff listened carefully and the visit was pleasant.");
+  await u.click(r.getByLabelText(/Use AI to help/));
+  await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+  await testing.waitFor(() =>
+    assert.ok(r.getByText(/Trial diagnostics: guest session · HTTP 502 · INVALID_RESPONSE/)),
+  );
+  assert.equal(aiCalled, false);
+  assert.equal(r.queryByText(/private backend failure/), null);
+});
+
+test("Netlify trial shows a safe API error code, but ordinary businesses do not", async () => {
+  globalThis.fetch = async url =>
+    String(url) === "/api/guest"
+      ? Response.json({ error: "ORIGIN_REJECTED" }, { status: 403 })
+      : Response.json({ error: "AI_UNAVAILABLE" }, { status: 503 });
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={{ ...loc, business_id: "netlify-trial-only", slug: "netlify-demo" }} local={false} />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.type(r.getByLabelText("What stood out?"), "The staff listened carefully and the visit was pleasant.");
+  await u.click(r.getByLabelText(/Use AI to help/));
+  await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+  await testing.waitFor(() =>
+    assert.ok(r.getByText(/Trial diagnostics: guest session · HTTP 403 · ORIGIN_REJECTED/)),
+  );
+});
+
 test("one generation request returns editable draft with explicit simulated label", async () => {
   let calls = 0;
   globalThis.fetch = async (input, init) => {
@@ -86,7 +126,7 @@ test("one generation request returns editable draft with explicit simulated labe
   };
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.click(r.getByRole("button", { name: "Try a sample" }));
   await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
@@ -107,7 +147,7 @@ test("one generation request returns editable draft with explicit simulated labe
 test("Xiaohongshu manual route has separate title and review with no auto-post action", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.click(r.getByRole("button", { name: "Xiaohongshu" }));
   await u.type(
     r.getByLabelText("What stood out?"),
@@ -134,7 +174,7 @@ test("photo preview stays local and is removable without a network upload", asyn
   URL.revokeObjectURL = (url) => revoked.push(url);
   try {
     const r = testing.render(<ReviewForm location={loc} local />);
-    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByRole("button", { name: "English" }));
     await u.click(r.getByText("Add photos (optional)"));
     const file = new window.File(["photo"], "test.png", { type: "image/png" });
     await u.upload(r.getByLabelText(/Add a photo preview/), file);
@@ -164,7 +204,7 @@ test("questionnaire starts neutral, supports feedback-only generation and clears
     });
   };
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   const group = r.getByRole("group", { name: "Staff and service" });
   assert.equal(
     testing.within(group).queryAllByRole("button", { pressed: true }).length,
@@ -231,7 +271,7 @@ test("configured choices translate without losing answers; manual notes include 
       local
     />,
   );
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.click(r.getByRole("button", { name: "Coffee" }));
   await u.click(
     testing
@@ -250,7 +290,7 @@ test("configured choices translate without losing answers; manual notes include 
 test("optional spending starts blank, slider syncs with exact amount and Clear removes it", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   const amount = r.getByRole("spinbutton", { name: "Amount spent (RM)" }) as HTMLInputElement;
   const slider = r.getByRole("slider", { name: "Spending amount slider" }) as HTMLInputElement;
   assert.equal(amount.value, "");
@@ -273,7 +313,7 @@ test("optional spending starts blank, slider syncs with exact amount and Clear r
 test("old first-visit question is removed while optional spend remains visible", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   assert.equal(r.queryByText("Visit details (optional)"), null);
   assert.equal(r.queryByLabelText("Was this your first visit?"), null);
   assert.equal(r.queryByRole("combobox", { name: "Was this your first visit?" }), null);
@@ -301,7 +341,7 @@ test("restored legacy first-visit value is not silently included in a new review
 test("customer destination buttons use recognizable brand assets", async () => {
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   const google = r.getByRole("button", { name: "Google Reviews" });
   const red = r.getByRole("button", { name: "Xiaohongshu" });
   assert.match(google.querySelector("img")?.getAttribute("src") || "", /Google_Maps_icon_%282026%29/);
@@ -311,7 +351,7 @@ test("optional amount accepts cents and Finish clears guided answers", async () 
   const u = userEvent.setup();
   globalThis.fetch = async () => Response.json({ ok: true });
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("Amount spent (RM)"), "25.50");
   assert.equal(
     Number((r.getByLabelText("Amount spent (RM)") as HTMLInputElement).value),
@@ -330,7 +370,7 @@ test("optional amount accepts cents and Finish clears guided answers", async () 
   await u.click(r.getByRole("button", { name: "Finish & clear" }));
   await testing.waitFor(() => assert.equal(r.queryByLabelText("Review"), null));
   await u.click(r.getByRole("button", { name: "Start another review" }));
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   assert.equal(
     r.queryAllByRole("button", { name: "Could improve", pressed: true }).length,
     0,
@@ -345,12 +385,11 @@ test("welcome screen selects a language and keeps the customer journey free of d
   const u = userEvent.setup();
   const r = testing.render(<ReviewForm location={loc} local />);
   assert.ok(
-    r.getByRole("heading", { name: "Your visit, in your words." }),
+    r.getByRole("heading", { name: "Choose your language" }),
   );
   assert.equal(r.queryByLabelText("What stood out?"), null);
   assert.equal(r.queryByRole("link", { name: /dashboard/i }), null);
   await u.click(r.getByRole("button", { name: "Bahasa Melayu" }));
-  await u.click(r.getByRole("button", { name: "Tulis ulasan saya" }));
   assert.equal(
     (r.getByLabelText("Bahasa ulasan") as HTMLSelectElement).value,
     "ms",
@@ -378,7 +417,7 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
       local
     />,
   );
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.click(r.getByRole("button", { name: "Service was quick" }));
   await u.click(r.getByRole("button", { name: "The wait was long" }));
   assert.ok(
@@ -410,7 +449,7 @@ test("detailed feedback is optional, mutually exclusive per pair and preserved w
 test("reloading restores the draft but never restores export approval", async () => {
   const u = userEvent.setup();
   let r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.type(
     r.getByLabelText("What stood out?"),
     "Helpful staff and a quiet room.",
@@ -436,7 +475,7 @@ test("Finish removes browser draft even when the cleanup request fails", async (
   const u = userEvent.setup();
   globalThis.fetch = async () => { throw new Error("offline"); };
   const r = testing.render(<ReviewForm location={loc} local />);
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("What stood out?"), "A draft to erase offline.");
   assert.ok(sessionStorage.getItem("fieldnote:demo"));
   await u.click(r.getByRole("button", { name: "Write without AI" }));
@@ -473,7 +512,7 @@ test("kiosk mode deletes the previous visitor's saved draft and never persists a
     const r = testing.render(<ReviewForm location={loc} local />);
     await testing.waitFor(() => assert.equal(sessionStorage.getItem("fieldnote:demo"), null));
     assert.equal(r.queryByLabelText("What stood out?"), null);
-    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "A new kiosk visitor");
     assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
   } finally {
@@ -497,7 +536,7 @@ test("kiosk inactivity resets the form, and a delayed AI response cannot revive 
   try {
     const u = userEvent.setup();
     const r = testing.render(<ReviewForm location={loc} local />);
-    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "Private details to clear");
     await u.click(r.getByLabelText(/Use AI to help/));
     await u.click(r.getByRole("button", { name: "Generate my review draft" }));
@@ -505,13 +544,13 @@ test("kiosk inactivity resets the form, and a delayed AI response cannot revive 
     time += 5 * 60 * 1000 + 1;
     window.dispatchEvent(new window.Event("focus"));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
+      assert.ok(r.getByRole("heading", { name: "Choose your language" })),
     );
     release(Response.json({ title: "", body: "Private details", demo: false }));
     await new Promise<void>(resolve => setTimeout(resolve, 0));
     assert.equal(r.queryByLabelText("Review"), null);
     assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
-    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByRole("button", { name: "English" }));
     assert.equal((r.getByLabelText("What stood out?") as HTMLTextAreaElement).value, "");
   } finally {
     Date.now = realNow;
@@ -528,12 +567,12 @@ test("first kiosk tap after a suspended interval clears the previous visitor", a
   try {
     const u = userEvent.setup();
     const r = testing.render(<ReviewForm location={loc} local />);
-    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "Old customer");
     time += 5 * 60 * 1000 + 1;
     window.dispatchEvent(new window.Event("pointerdown"));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
+      assert.ok(r.getByRole("heading", { name: "Choose your language" })),
     );
     assert.equal(r.queryByLabelText("Review"), null);
   } finally {
@@ -551,7 +590,7 @@ test("AI rate threshold presents a human check and leaves manual writing enabled
   const r = testing.render(
     <ReviewForm location={loc} local turnstileSiteKey="public-test-key" />,
   );
-  await u.click(r.getByRole("button", { name: "Write my review" }));
+  await u.click(r.getByRole("button", { name: "English" }));
   await u.type(r.getByLabelText("What stood out?"), "A short honest experience.");
   await u.click(r.getByLabelText(/Use AI to help/));
   await u.click(r.getByRole("button", { name: "Generate my review draft" }));
@@ -597,7 +636,7 @@ test("completed human challenge token is supplied for one retry", async () => {
     const r = testing.render(
       <ReviewForm location={loc} local turnstileSiteKey="public-test-key" />,
     );
-    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "A reasonable experience.");
     await u.click(r.getByLabelText(/Use AI to help/));
     await u.click(r.getByRole("button", { name: "Generate my review draft" }));
@@ -634,20 +673,70 @@ test("first expired kiosk click cannot turn an old answer into a new manual draf
   try {
     const u = userEvent.setup();
     const r = testing.render(<ReviewForm location={loc} local />);
-    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByRole("button", { name: "English" }));
     await u.type(r.getByLabelText("What stood out?"), "Previous visitor's private words.");
     const manual = r.getByRole("button", { name: "Write without AI" });
     time += 5 * 60 * 1000 + 1;
     manual.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true }));
     await testing.waitFor(() =>
-      assert.ok(r.getByRole("heading", { name: "Your visit, in your words." })),
+      assert.ok(r.getByRole("heading", { name: "Choose your language" })),
     );
     assert.equal(r.queryByLabelText("Review"), null);
     assert.equal(sessionStorage.getItem("fieldnote:demo"), null);
-    await u.click(r.getByRole("button", { name: "Write my review" }));
+    await u.click(r.getByRole("button", { name: "English" }));
     assert.equal((r.getByLabelText("What stood out?") as HTMLTextAreaElement).value, "");
   } finally {
     Date.now = realNow;
     window.history.replaceState({}, "", "/");
   }
+});
+
+
+test("compact progress steps provide screen-reader labels and update across three stages", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  // The welcome page focuses exclusively on one-tap language selection.
+  assert.equal(r.queryByRole("list", { name: "Step 1 of 3" }), null);
+  assert.equal(r.getAllByRole("button", { name: /^(English|简体中文|繁體中文|Bahasa Melayu)$/ }).length, 4);
+  await u.click(r.getByRole("button", { name: "English" }));
+  const visitSteps = r.getByRole("list", { name: "Step 2 of 3" });
+  const secondItems = testing.within(visitSteps).getAllByRole("listitem");
+  assert.equal(secondItems[1].getAttribute("aria-current"), "step");
+  await u.type(r.getByLabelText("What stood out?"), "Friendly staff, but the service was slow.");
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  const draftSteps = r.getByRole("list", { name: "Step 3 of 3" });
+  const thirdItems = testing.within(draftSteps).getAllByRole("listitem");
+  assert.equal(thirdItems[2].getAttribute("aria-current"), "step");
+  assert.equal(thirdItems[2].textContent?.includes("Review and share"), true);
+});
+
+test("Chinese and Malay progress indicators retain translated labels and privacy access", async () => {
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  assert.equal(r.getAllByRole("link", { name: "Privacy information" }).length, 1);
+  assert.ok(r.getByText("by DA Smarketing Solutions"));
+  await u.click(r.getByRole("button", { name: "简体中文" }));
+  const chineseList = r.getByRole("list");
+  assert.match(chineseList.textContent || "", /语言/);
+  assert.equal(testing.within(chineseList).getAllByRole("listitem")[1].getAttribute("aria-current"), "step");
+  await u.selectOptions(r.getByLabelText("页面语言"), "ms");
+  const malayList = r.getByRole("list");
+  assert.match(malayList.textContent || "", /Langkah/);
+  assert.match(malayList.textContent || "", /Bahasa/);
+  assert.equal(testing.within(malayList).getAllByRole("listitem")[1].getAttribute("aria-current"), "step");
+});
+
+test("welcome credits HD Review and DA without a large standalone footer block", async () => {
+  const r = testing.render(<ReviewForm location={loc} local />);
+  const footer = r.container.querySelector(".review-footer");
+  assert.ok(footer);
+  assert.ok(footer.querySelector(".hd-brand--compact"));
+  assert.ok(footer.querySelector(".hd-brand-company-mark"));
+  assert.ok(testing.within(footer as HTMLElement).getByText("by DA Smarketing Solutions"));
+  assert.equal(footer.querySelector(".review-footer-company-logo"), null);
+  assert.ok(r.getByRole("link", { name: "Privacy information" }));
+  assert.equal(r.queryByText("YOUR EXPERIENCE, YOUR WORDS"), null);
+  assert.equal(r.queryByText("Real experiences, shared your way."), null);
+  assert.ok(r.getByRole("heading", { name: "Juniper Table" }));
+  assert.ok(r.getByText(/Town Centre/));
 });

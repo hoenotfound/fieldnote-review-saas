@@ -24,15 +24,28 @@ function scopedHash(scope: string, businessId: string, identity: string) {
 }
 
 /**
- * Render fronts applications with Cloudflare. Cloudflare provides a canonical
- * CF-Connecting-IP; an arbitrary XFF chain is not a trusted client identity.
- * The production fallback intentionally shares one bucket rather than
- * trusting an attacker-supplied header. Validate the real proxy behavior
- * on the hosted service before public launch.
+ * Rate-limit network identity must come from the selected hosting platform,
+ * never from an untrusted X-Forwarded-For or Client-IP chain. Treat proxy
+ * headers as deployment assumptions requiring live spoofing tests. If any
+ * required Netlify/Render header is missing, fall back to one shared bucket
+ * instead of assuming an attacker-supplied address is genuine.
  */
 export function networkKey(request: Request, businessId: string) {
   let identity = "unverified-network";
-  if (process.env.RENDER === "true") {
+  if (process.env.HOSTING_PROVIDER === "netlify") {
+    // Netlify retains x-nf-client-connection-ip and x-nf-request-id for
+    // Functions. x-nf-site-id is NOT a documented forwarded header.
+    // Hosting-provider selection and HMAC business scoping bind the identity
+    // to this app; never require an unsupported request-site header.
+    //
+    // Do not trust caller-controlled x-forwarded-for or client-ip. These
+    // Netlify headers are deployment assumptions, NOT cryptographic proof.
+    // Verify the CDN overwrites spoofed headers before a wider rollout.
+    const ip = request.headers.get("x-nf-client-connection-ip")?.trim();
+    const requestId = request.headers.get("x-nf-request-id")?.trim();
+    if (requestId && /^[a-z0-9-]{10,100}$/i.test(requestId) &&
+        ip && isIP(ip)) identity = ip;
+  } else if (process.env.RENDER === "true") {
     const ip = request.headers.get("cf-connecting-ip")?.trim();
     if (request.headers.get("cf-ray")?.trim() && ip && isIP(ip))
       identity = ip;

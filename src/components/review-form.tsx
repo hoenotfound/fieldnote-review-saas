@@ -18,7 +18,6 @@ import {
   ArrowRight,
   ImagePlus,
   ShieldCheck,
-  MessageSquareQuote,
   Check,
   Copy,
   LoaderCircle,
@@ -68,6 +67,7 @@ export function ReviewForm({
   const [finishing, setFinishing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [trialDiagnostic, setTrialDiagnostic] = useState("");
   const [photos, setPhotos] = useState<Photo[]>([]);
   const photoRef = useRef<Photo[]>([]);
   const resultRef = useRef<HTMLElement>(null);
@@ -84,6 +84,7 @@ export function ReviewForm({
     new URLSearchParams(window.location.search).get("kiosk") === "1";
   const t = translations[locale];
   const storageKey = "fieldnote:" + location.slug;
+  const isNetlifyTrial = location.business_id === "netlify-trial-only" && location.slug === "netlify-demo";
   useEffect(() => {
     try {
       // Shared kiosks must never resurrect a previous visitor's draft.
@@ -199,6 +200,7 @@ export function ReviewForm({
   async function generate() {
     if (kioskExpired.current || busy) return;
     setError("");
+    setTrialDiagnostic("");
     setMessage("");
     setConfirmed(false);
     if (!validAnswers || !hasExperience(experience, answers)) {
@@ -213,6 +215,8 @@ export function ReviewForm({
     const controller = new AbortController();
     activeGeneration.current = controller;
     const timer = window.setTimeout(() => controller.abort(), 35000);
+    let phase: "guest" | "generate" = "guest";
+    let httpStatus: number | null = null;
     setBusy(true);
     try {
       const guest = await fetch("/api/guest", {
@@ -222,8 +226,14 @@ export function ReviewForm({
         signal: controller.signal,
       });
       if (epoch !== requestEpoch.current || controller.signal.aborted) return;
-      if (!guest.ok) throw new Error((await guest.json()).error);
+      httpStatus = guest.status;
+      if (!guest.ok) {
+        const response = await guest.json().catch(() => null);
+        const code = typeof response?.error === "string" ? response.error : "INVALID_RESPONSE";
+        throw new Error(code);
+      }
       pendingKey.current ??= crypto.randomUUID();
+      phase = "generate";
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -239,12 +249,15 @@ export function ReviewForm({
         signal: controller.signal,
       });
       if (epoch !== requestEpoch.current || controller.signal.aborted) return;
-      const data = await res.json();
+      httpStatus = res.status;
+      const data = await res.json().catch(() => null);
       if (epoch !== requestEpoch.current || controller.signal.aborted) return;
       if (!res.ok) {
-        if (data.error !== "ALREADY_RUNNING") pendingKey.current = null;
-        throw new Error(data.error);
+        if (data?.error !== "ALREADY_RUNNING") pendingKey.current = null;
+        throw new Error(typeof data?.error === "string" ? data.error : "INVALID_RESPONSE");
       }
+      if (!data || typeof data.title !== "string" || typeof data.body !== "string")
+        throw new Error("INVALID_RESPONSE");
       setDraft(data);
       setDraftLanguage(output);
       setStage("review");
@@ -258,6 +271,13 @@ export function ReviewForm({
     } catch (e) {
       if (epoch !== requestEpoch.current) return;
       const code = e instanceof Error ? e.message : "REQUEST_FAILED";
+      if (isNetlifyTrial) {
+        // Do not display response bodies, IP addresses, review text, or server exceptions.
+        const safeCode = /^[A-Z][A-Z0-9_]{2,40}$/.test(code)
+          ? code
+          : controller.signal.aborted ? "TIMEOUT" : "NETWORK_ERROR";
+        setTrialDiagnostic(`Trial diagnostics: ${phase === "guest" ? "guest session" : "AI generation"} · ${httpStatus === null ? "no HTTP response" : `HTTP ${httpStatus}`} · ${safeCode}`);
+      }
       if (code === "AI_CHALLENGE_REQUIRED" && turnstileSiteKey) {
         setChallengeRequired(true);
         setChallengeToken("");
@@ -295,6 +315,7 @@ export function ReviewForm({
     setStage("review");
     setConfirmed(false);
     setError("");
+    setTrialDiagnostic("");
     setMessage("");
     pendingKey.current = null;
     setTimeout(
@@ -323,6 +344,7 @@ export function ReviewForm({
     setConsent(false);
     setConfirmed(false);
     setError("");
+    setTrialDiagnostic("");
     setMessage("");
     photoRef.current.forEach((p) => URL.revokeObjectURL(p.url));
     photoRef.current = [];
@@ -431,7 +453,7 @@ export function ReviewForm({
   return (
     <main
       lang={locale}
-      className="review-scene"
+      className={`review-scene${stage === "welcome" ? " review-scene--welcome" : ""}`}
       style={
         {
           "--accent": location.accent,
@@ -439,8 +461,6 @@ export function ReviewForm({
         } as React.CSSProperties
       }
     >
-      <div className="review-orbit orbit-one" aria-hidden="true" />
-      <div className="review-orbit orbit-two" aria-hidden="true" />
       <div className="review-shell">
         <header className="review-masthead">
           <span className="mini-wordmark">
@@ -484,71 +504,60 @@ export function ReviewForm({
             </p>
           </div>
         </section>
-        {stage !== "complete" && (
-          <ol
-            className="review-progress"
-            aria-label={`${c.step} ${step} ${c.of} 3`}
-          >
-            {[c.language, c.experience, c.review].map((label, i) => (
-              <li
-                key={i}
-                className={
-                  i + 1 < step ? "done" : i + 1 === step ? "current" : ""
-                }
-                aria-current={i + 1 === step ? "step" : undefined}
-              >
-                <span>{i + 1 < step ? <Check size={13} /> : i + 1}</span>
-                {label}
-              </li>
-            ))}
-          </ol>
+        {stage !== "welcome" && stage !== "complete" && (
+          <div className="review-steps">
+            <div className="review-steps-meta">
+              <span>{c.step} {step} {c.of} 3</span>
+              <strong>{[c.language, c.experience, c.review][step - 1]}</strong>
+            </div>
+            <ol className="review-progress" aria-label={`${c.step} ${step} ${c.of} 3`}>
+              {[c.language, c.experience, c.review].map((label, i) => (
+                <li
+                  key={i}
+                  className={i + 1 < step ? "done" : i + 1 === step ? "current" : ""}
+                  aria-current={i + 1 === step ? "step" : undefined}
+                >
+                  <span className="sr-only">{c.step} {i + 1} {c.of} 3: {label}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
         )}
         <div className="review-panel" aria-busy={busy}>
           {stage === "welcome" && (
             <section className="welcome-step">
-              <div className="welcome-symbol" aria-hidden="true">
-                <MessageSquareQuote size={30} />
+              <div className="welcome-heading">
+                <h1 tabIndex={-1} ref={headingRef}>{c.choose}</h1>
+                {locale === "en" ? (
+                  <p className="welcome-bilingual" lang="zh-CN">请选择您最熟悉的语言</p>
+                ) : (
+                  <p className="welcome-bilingual" lang="en">Choose your preferred language</p>
+                )}
               </div>
-              <h1 tabIndex={-1} ref={headingRef}>
-                {c.welcome}
-              </h1>
-              <p className="panel-lead">{c.welcomeHint}</p>
               <fieldset className="language-picker">
-                <legend>{c.choose}</legend>
+                <legend className="sr-only">{c.choose}</legend>
                 <div className="language-tiles">
-                  {Object.entries(languageNames).map(([key, name]) => (
+                  {(["zh-CN", "zh-TW", "en", "ms"] as Locale[]).map((key) => (
                     <button
                       key={key}
                       type="button"
                       className="language-tile"
-                      aria-pressed={locale === key}
                       onClick={() => {
-                        setLocale(key as Locale);
-                        setOutput(key as Locale);
+                        setLocale(key);
+                        setOutput(key);
+                        setMessage("");
+                        setError("");
+                        setStage("visit");
                       }}
                     >
-                      <span>{name}</span>
-                      {locale === key ? (
-                        <Check size={18} />
-                      ) : (
-                        <span className="language-dot" />
-                      )}
+                      <span>{languageNames[key]}</span>
+                      <ArrowRight size={18} aria-hidden="true" />
                     </button>
                   ))}
                 </div>
               </fieldset>
-              <button
-                className="btn full primary-action"
-                onClick={() => {
-                  setStage("visit");
-                  setMessage("");
-                }}
-              >
-                {c.start}
-                <ArrowRight size={19} />
-              </button>
               <p className="quiet-note">
-                <ShieldCheck size={15} />
+                <ShieldCheck size={16} aria-hidden="true" />
                 {c.welcomePrivacy}
               </p>
             </section>
@@ -954,6 +963,9 @@ export function ReviewForm({
           {error && (
             <div role="alert" className="notice error">
               {error}
+              {isNetlifyTrial && trialDiagnostic && (
+                <p><small>{trialDiagnostic}</small></p>
+              )}
             </div>
           )}
           {message && stage !== "complete" && (
@@ -972,25 +984,10 @@ export function ReviewForm({
           )}
         </div>
         <footer className="review-footer">
-          <p>
-            <ShieldCheck size={14} />
-            {c.welcomePrivacy}{" "}
-            <a href="/privacy">{t.privacyLink}</a>
-          </p>
-          <span>
-            {c.powered} <strong>HD Review</strong>
-            <span className="hd-review-attribution">
-              {" · "}
-              <img
-                src="/da-smarketing-logo.svg"
-                alt=""
-                width={16}
-                height={16}
-                className="hd-review-company-mark"
-              />
-              {" "}by DA Smarketing Solutions
-            </span>
-          </span>
+          <div className="review-footer-credit">
+            <HDReviewWordmark compact />
+          </div>
+          <a href="/privacy" className="review-footer-privacy">{t.privacyLink}</a>
         </footer>
       </div>
     </main>
