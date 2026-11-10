@@ -131,6 +131,68 @@ test("clearing an already shared amount withdraws the old amount, then accepts a
   assert.deepEqual(requests[4].body, {slug:loc.slug, consent:true, spend:110});
 });
 
+test("slow saves finish before a newer spending withdrawal", async () => {
+  const requests: Array<{ url: string; body: any }> = [];
+  let releaseSave: ((response: Response) => void) | undefined;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(String(init?.body));
+    requests.push({ url: String(url), body });
+    if (String(url) === "/api/spending" && body.consent === true)
+      return new Promise<Response>((resolve) => { releaseSave = resolve; });
+    return Response.json({ ok: true });
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  try {
+    await u.click(r.getByRole("button", { name: "English" }));
+    await u.type(r.getByLabelText("Amount spent (RM)"), "250");
+    await u.type(r.getByLabelText("What stood out?"), "A good visit, pleasant staff.");
+    await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+    await u.click(r.getByRole("button", { name: "Write without AI" }));
+    await testing.waitFor(() => assert.ok(releaseSave));
+    await u.click(r.getByRole("button", { name: "Edit my answers" }));
+    await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+    assert.equal(requests.filter(x => x.url === "/api/spending").length, 1);
+    releaseSave!(Response.json({ ok: true }));
+    await testing.waitFor(() => assert.equal(requests.filter(x => x.url === "/api/spending").length, 2));
+    const operations = requests.filter(x => x.url === "/api/spending").map(x => x.body);
+    assert.deepEqual(operations, [
+      { slug: loc.slug, spend: 250, consent: true },
+      { slug: loc.slug, spend: null, consent: false },
+    ]);
+  } finally {
+    releaseSave?.(Response.json({ ok: true }));
+  }
+});
+
+test("failed withdrawal shows retry instead of silently leaving spending in analytics", async () => {
+  let withdrawals = 0;
+  globalThis.fetch = async (url, init) => {
+    const body = JSON.parse(String(init?.body));
+    if (String(url) === "/api/spending" && body.consent === false) {
+      withdrawals++;
+      if (withdrawals === 1)
+        return Response.json({ error: "REQUEST_FAILED" }, { status: 503 });
+    }
+    return Response.json({ ok: true });
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.type(r.getByLabelText("Amount spent (RM)"), "280");
+  await u.type(r.getByLabelText("What stood out?"), "Comfortable service and clean rooms.");
+  await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+  await u.click(r.getByRole("button", { name: "Write without AI" }));
+  await testing.waitFor(() => assert.ok(r.getByText(/recorded for private statistics/)));
+  await u.click(r.getByRole("button", { name: "Edit my answers" }));
+  await u.click(r.getByRole("checkbox", { name: /Share my spending amount/ }));
+  await testing.waitFor(() => assert.ok(r.getByText(/couldn't remove the previously shared amount/)));
+  await u.click(r.getByRole("button", { name: "Remove previously shared amount" }));
+  await testing.waitFor(() => assert.equal(withdrawals, 2));
+  await testing.waitFor(() => assert.ok(r.getByText(/removed from statistics/)));
+  assert.equal(r.queryByRole("button", { name: "Remove previously shared amount" }), null);
+});
+
 test("manual review remains usable if optional spending submission fails", async () => {
   globalThis.fetch = async () => { throw new Error("offline"); };
   const u = userEvent.setup();
