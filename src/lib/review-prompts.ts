@@ -73,17 +73,30 @@ const SOFT_PROMOTION = /(?:买一送一|買一送一|三天(?:见效|見效)|[1-
 // If the customer describes being pressured by staff to follow a promotional
 // instruction, it is a review of conduct, not a fresh instruction to readers.
 // Real contact details and external links are never downgraded.
+/** Only read attribution/rebuttals inside the clause containing this match. */
+function sameSentenceBefore(content: string, index: number, maxChars: number): string {
+  const previous = content.slice(Math.max(0, index - maxChars), index);
+  const lastStop = Math.max(
+    previous.lastIndexOf("。"), previous.lastIndexOf("！"),
+    previous.lastIndexOf("？"), previous.lastIndexOf("."),
+    previous.lastIndexOf("!"), previous.lastIndexOf("?"),
+    previous.lastIndexOf("\n"),
+  );
+  return previous.slice(lastStop + 1);
+}
+
 function reportedSolicitationComplaint(content: string, index: number, length: number): boolean {
-  const before = content.slice(Math.max(0, index - 64), index);
+  const before = sameSentenceBefore(content, index, 64);
   const after = content.slice(index + length, index + length + 64);
   return REPORTED_REQUEST.test(before) && REQUEST_COMPLAINT.test(before + after);
 }
 
 function disputedClaim(content: string, index: number, length: number): boolean {
-  // Check the nearest surrounding wording for a rebuttal to the claim,
-  // rather than any nearby contrast or an unrelated negative experience.
-  const surrounding = content.slice(Math.max(0, index - 32), index + length + 68);
-  return CLAIM_REBUTTAL.test(surrounding);
+  // An explicit rebuttal must be connected to THIS claim. Unrelated "but",
+  // price complaints and rebuttals to earlier sentences do not count.
+  const before = sameSentenceBefore(content, index, 32);
+  const after = content.slice(index + length, index + length + 68);
+  return CLAIM_REBUTTAL.test(before + after);
 }
 
 /**
