@@ -265,3 +265,15 @@ test("Xiaohongshu neutral service names and honest experience still pass", () =>
   ])
     assert.equal(xiaohongshuDraftRisk({ title: "个人体验", body }), null, body);
 });
+
+
+test("Xiaohongshu Experience Post adds practical, truthful search writing guidance only to that mode", () => {
+  const quick = reviewSystemPrompt("xiaohongshu");
+  const experience = reviewSystemPrompt("xiaohongshu", "experience");
+  assert.match(experience, /searchable first-person experience note/);
+  assert.match(experience, /verified business or branch location/);
+  assert.match(experience, /practical tip or concern/);
+  assert.match(experience, /not an advertisement/);
+  assert.doesNotMatch(quick, /verified business or branch location/);
+  assert.doesNotMatch(reviewSystemPrompt("google"), /verified business or branch location/);
+});
