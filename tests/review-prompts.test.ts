@@ -296,3 +296,19 @@ test("AI review style favors real customer experience instead of repeating surve
   assert.match(experience, /A nonspecific Mixed score is not a separate complaint/);
   assert.match(reviewSystemPrompt("google"), /without listing every category/);
 });
+
+
+test("review tone retains broad reservations and critical ratings without a survey checklist", () => {
+  for (const platform of ["google", "xiaohongshu", "facebook", "instagram"] as const) {
+    const prompt = reviewSystemPrompt(platform);
+    assert.match(prompt, /ratingBalance/);
+    assert.match(prompt, /multiple Mixed ratings must not be turned into unqualified praise/);
+    assert.match(prompt, /A Could improve rating is a genuine negative assessment/);
+    assert.match(prompt, /do not turn poor or predominantly negative feedback into a positive endorsement/);
+    assert.match(prompt, /Written complaints take priority over numerical rating counts/);
+    assert.match(prompt, /If the inputs are mixed, keep that qualification/);
+    assert.match(prompt, /Do not force a positive opening/);
+  }
+  assert.match(reviewSystemPrompt("xiaohongshu"), /Do not mechanically list the questionnaire/);
+  assert.match(reviewSystemPrompt("xiaohongshu", "experience"), /do not artificially add positives/);
+});
