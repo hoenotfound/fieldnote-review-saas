@@ -1055,23 +1055,22 @@ test("Experience Post details are included once and are part of idempotency iden
     xhsStandout: "I asked about every step and the team explained it.",
     xhsTip: "Bring your questions before the appointment.",
   };
-  let callCount = 0;
-  let seen: { experience: string; business: string; customerText: string; locationName?: string } | null = null;
-  const provider = async (i: GenerationInput, business: string, customerText: string, locationName?: string) => {
-    callCount++;
-    seen = { experience: i.experience, business, customerText, locationName };
+  const observed: Array<{ experience: string; business: string; customerText: string; locationName?: string }> = [];
+  // Match writeDraft's optional third argument to satisfy its provider type.
+  const provider = async (i: GenerationInput, business: string, customerText = "", locationName?: string) => {
+    observed.push({ experience: i.experience, business, customerText, locationName });
     return { draft: { title: "My visit", body: i.xhsStandout || "", demo: true }, inputTokens: 0, outputTokens: 0 };
   };
   await generate(request, id, provider);
   await generate(request, id, provider);
-  assert.equal(callCount, 1);
+  assert.equal(observed.length, 1);
   // Other backend tests deliberately rename this test business.
   // Compare against the current verified location instead of assuming a fixed name.
   const currentLocation = await publicLocation("a");
-  assert.equal(seen?.business, currentLocation?.business_name);
-  assert.equal(seen?.locationName, currentLocation?.name);
-  assert.match(seen?.customerText || "", /I asked about every step/);
-  assert.equal(seen?.experience, "");
+  assert.equal(observed[0]?.business, currentLocation?.business_name);
+  assert.equal(observed[0]?.locationName, currentLocation?.name);
+  assert.match(observed[0]?.customerText || "", /I asked about every step/);
+  assert.equal(observed[0]?.experience, "");
   await assert.rejects(
     generate({ ...request, xhsTip: "Different tip from the customer." }, id, provider),
     (error: unknown) => error instanceof AppError && error.code === "REQUEST_CONFLICT",
