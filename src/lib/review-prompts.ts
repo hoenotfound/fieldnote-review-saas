@@ -34,7 +34,7 @@ export const XIAOHONGSHU_REVIEW_RULES = [
   "For beauty, skincare, or clinic visits, a chosen treatment name is NOT proof it achieved any result. Do not convert a service label such as '提拉紧致' into a claim that skin was lifted, tightened, treated or changed. When the name sounds like a marketing result, prefer the neutral word '护理' or a brief factual label, without concealing relevant firsthand details.",
   "Never assert medical efficacy, disease treatment or prevention, physiological mechanisms, detoxification, collagen regeneration, permanent outcomes, immediate transformations, zero risk, zero pain, or a fixed recovery period. A customer's subjective observation may be described cautiously only when they actually provided it; do not invent before-and-after changes.",
   "No advertising superlatives, invented credentials, discounts, calls to book, hashtags, referral language, off-platform contacts, or masked/split words meant to evade moderation.",
-  "Make the brief title factual and modest, reflecting a real service or observation only if supplied. Prioritise the customer's specific details and preserve honest criticisms or uncertainty, even about promotional claims.",
+  "Make the brief title informative and modest: a service actually tried plus the customer's main real observation or trade-off, if supplied. In the body favour practical details a reader would want to know, and preserve honest criticisms or uncertainty, even about promotional claims.",
   "Set needsDetail=true if the inputs cannot support even a short meaningful firsthand note. Otherwise return short, unembellished title and body; do not force a story.",
   "Customer must review the final post and disclose AI assistance on Xiaohongshu when applicable. Platform moderation is contextual and no keyword list guarantees acceptance.",
 ].join(" ");
@@ -151,7 +151,6 @@ const BEAUTY_EFFECT_CLAIM = /(?:立竿见影|立竿見影|一次(?:就)?见效|�
 // These phrases are evidence of boilerplate, not a known exhaustive list of
 // banned words. Reject AI-generated filler rather than show an invented review.
 const BOILERPLATE_REVIEW = /(?:整体等候时间合理|整體等候時間合理|产品和服务的品质也符合预期|產品和服務的品質也符合預期|环境同样不错|環境同樣不錯|性价比感觉可以|性價比感覺可以)/iu;
-
 
 // If the customer describes being pressured by staff to follow a promotional
 // instruction, it is a review of conduct, not a fresh instruction to readers.
