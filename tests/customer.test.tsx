@@ -1082,3 +1082,67 @@ test("photo download remains visible when native file sharing is unsupported", a
     else Reflect.deleteProperty(navigator, "canShare");
   }
 });
+
+
+test("Xiaohongshu Experience Post requires a real detail and sends one focused AI request", async () => {
+  let generated: any = null;
+  let aiCalls = 0;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "/api/guest") return Response.json({ ok: true });
+    assert.equal(String(url), "/api/generate");
+    aiCalls++;
+    generated = JSON.parse(String(init?.body));
+    return Response.json({
+      title: "Service experience at Juniper Table",
+      body: "I asked about the process and the staff explained it clearly.",
+      demo: false,
+    });
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  assert.equal(r.queryByText("Xiaohongshu Experience Post"), null);
+  await u.click(r.getByRole("button", { name: "Xiaohongshu" }));
+  await u.click(r.getByRole("button", { name: /Xiaohongshu Experience Post/ }));
+  const generateButton = r.getByRole("button", { name: "Generate my review draft" }) as HTMLButtonElement;
+  assert.equal(generateButton.disabled, true);
+  await u.type(r.getByLabelText("What actually stood out? (optional)"),
+    "Staff walked me through the process before starting.");
+  await u.type(r.getByLabelText("What would you tell someone considering the same service? (optional)"),
+    "Ask about the process first.");
+  assert.equal(generateButton.disabled, false);
+  await u.click(generateButton);
+  await testing.waitFor(() => assert.ok(r.getByLabelText("Title")));
+  assert.equal(aiCalls, 1);
+  assert.equal(generated.platform, "xiaohongshu");
+  assert.equal(generated.xhsStyle, "experience");
+  assert.match(generated.xhsStandout, /walked me through/);
+  assert.match(generated.xhsTip, /Ask about/);
+  assert.equal(generated.experience, "");
+  assert.ok(r.getByText("Photos for your experience post"));
+  assert.ok(r.getByText(/Photos stay on your device/));
+});
+
+test("Xiaohongshu additional fields do not leak to Google review generation", async () => {
+  let payload: any;
+  globalThis.fetch = async (url, init) => {
+    if (String(url) === "/api/guest") return Response.json({ ok: true });
+    payload = JSON.parse(String(init?.body));
+    return Response.json({ title: "", body: payload.experience, demo: false });
+  };
+  const u = userEvent.setup();
+  const r = testing.render(<ReviewForm location={loc} local />);
+  await u.click(r.getByRole("button", { name: "English" }));
+  await u.click(r.getByRole("button", { name: "Xiaohongshu" }));
+  await u.click(r.getByRole("button", { name: /Xiaohongshu Experience Post/ }));
+  await u.type(r.getByLabelText("What actually stood out? (optional)"),
+    "Staff explained the entire visit and it was useful.");
+  await u.click(r.getByRole("button", { name: "Google Reviews" }));
+  await u.type(r.getByLabelText("What stood out?"), "Friendly service and clear instructions.");
+  await u.click(r.getByRole("button", { name: "Generate my review draft" }));
+  await testing.waitFor(() => assert.ok(r.getByLabelText("Review")));
+  assert.equal(payload.platform, "google");
+  assert.equal("xhsStyle" in payload, false);
+  assert.equal("xhsStandout" in payload, false);
+  assert.equal("xhsTip" in payload, false);
+});
