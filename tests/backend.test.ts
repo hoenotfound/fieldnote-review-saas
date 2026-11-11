@@ -1026,3 +1026,49 @@ test("pilot configuration refuses demo mode, missing isolation confirmation and 
   ])
     assert.ok(pilotProblems({ ...env, ...change }).length > 0);
 });
+
+
+test("Xiaohongshu Experience Post accepts customer details but rejects invented or cross-platform mode inputs", async () => {
+  const { generationInput } = await import("../src/lib/reviews");
+  const valid = {
+    ...input({ experience: "", platform: "xiaohongshu" }),
+    xhsStyle: "experience" as const,
+    xhsStandout: "The staff explained each step before the treatment.",
+    xhsTip: "Ask questions about the process before starting.",
+  };
+  assert.equal(generationInput.safeParse(valid).success, true);
+  assert.equal(generationInput.safeParse({ ...valid, xhsStandout: "good", xhsTip: "" }).success, false);
+  assert.equal(generationInput.safeParse({ ...valid, xhsStyle: "quick" }).success, false);
+  assert.equal(generationInput.safeParse({ ...valid, platform: "google" }).success, false);
+  assert.equal(generationInput.safeParse({ ...valid, xhsStandout: "A".repeat(241) }).success, false);
+  assert.equal(generationInput.safeParse({
+    ...input({ platform: "xiaohongshu", experience: "A nice service." }),
+    xhsStyle: "quick",
+  }).success, true);
+});
+
+test("Experience Post details are included once and are part of idempotency identity", async () => {
+  const id = await guest();
+  const request = {
+    ...input({ experience: "", platform: "xiaohongshu" }),
+    xhsStyle: "experience" as const,
+    xhsStandout: "I asked about every step and the team explained it.",
+    xhsTip: "Bring your questions before the appointment.",
+  };
+  let callCount = 0;
+  const provider = async (i: GenerationInput, business: string, customerText: string, locationName?: string) => {
+    callCount++;
+    assert.match(i.experience, /^$/);
+    assert.match(customerText, /I asked about every step/);
+    assert.equal(business, "a");
+    assert.equal(locationName, "a");
+    return { draft: { title: "My visit", body: i.xhsStandout || "", demo: true }, inputTokens: 0, outputTokens: 0 };
+  };
+  await generate(request, id, provider);
+  await generate(request, id, provider);
+  assert.equal(callCount, 1);
+  await assert.rejects(
+    generate({ ...request, xhsTip: "Different tip from the customer." }, id, provider),
+    (error: unknown) => error instanceof AppError && error.code === "REQUEST_CONFLICT",
+  );
+});
