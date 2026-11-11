@@ -1056,17 +1056,19 @@ test("Experience Post details are included once and are part of idempotency iden
     xhsTip: "Bring your questions before the appointment.",
   };
   let callCount = 0;
+  let seen: { experience: string; business: string; customerText: string; locationName?: string } | null = null;
   const provider = async (i: GenerationInput, business: string, customerText: string, locationName?: string) => {
     callCount++;
-    assert.match(i.experience, /^$/);
-    assert.match(customerText, /I asked about every step/);
-    assert.equal(business, "a");
-    assert.equal(locationName, "a");
+    seen = { experience: i.experience, business, customerText, locationName };
     return { draft: { title: "My visit", body: i.xhsStandout || "", demo: true }, inputTokens: 0, outputTokens: 0 };
   };
   await generate(request, id, provider);
   await generate(request, id, provider);
   assert.equal(callCount, 1);
+  assert.equal(seen?.business, "a");
+  assert.equal(seen?.locationName, "a");
+  assert.match(seen?.customerText || "", /I asked about every step/);
+  assert.equal(seen?.experience, "");
   await assert.rejects(
     generate({ ...request, xhsTip: "Different tip from the customer." }, id, provider),
     (error: unknown) => error instanceof AppError && error.code === "REQUEST_CONFLICT",
