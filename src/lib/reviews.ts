@@ -281,6 +281,9 @@ export async function writeDraft(
     contents: JSON.stringify({
       businessName,
       experience: input.experience,
+      // Unlike the experience summary above, this contains only text the
+      // customer entered themselves, including optional Xiaohongshu notes.
+      customerWrittenNote: customerText,
       language: input.locale,
       platform: input.platform,
       ...(input.platform === "xiaohongshu" && input.xhsStyle === "experience"
