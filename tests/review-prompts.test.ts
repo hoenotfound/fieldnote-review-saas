@@ -277,3 +277,38 @@ test("Xiaohongshu Experience Post adds practical, truthful search writing guidan
   assert.doesNotMatch(quick, /verified business or branch location/);
   assert.doesNotMatch(reviewSystemPrompt("google"), /verified business or branch location/);
 });
+
+test("AI review style favors real customer experience instead of repeating survey scores", () => {
+  for (const platform of ["google", "xiaohongshu", "facebook", "instagram"] as const) {
+    const prompt = reviewSystemPrompt(platform);
+    assert.match(prompt, /customerWrittenNote/);
+    assert.match(prompt, /Do not mechanically cover every survey category/);
+    assert.match(prompt, /A broad Mixed rating without an explanation/);
+    assert.match(prompt, /Never distort the customer's overall sentiment/);
+    assert.match(prompt, /do not conceal or downplay it/);
+    assert.match(prompt, /Do not force a positive opening/);
+  }
+  const xhs = reviewSystemPrompt("xiaohongshu");
+  assert.match(xhs, /环境和性价比表现一般/);
+  assert.match(xhs, /有好有坏/);
+  assert.match(xhs, /never invent help from staff|Never invent help from staff/i);
+  const experience = reviewSystemPrompt("xiaohongshu", "experience");
+  assert.match(experience, /A nonspecific Mixed score is not a separate complaint/);
+  assert.match(reviewSystemPrompt("google"), /without listing every category/);
+});
+
+
+test("review tone retains broad reservations and critical ratings without a survey checklist", () => {
+  for (const platform of ["google", "xiaohongshu", "facebook", "instagram"] as const) {
+    const prompt = reviewSystemPrompt(platform);
+    assert.match(prompt, /ratingBalance/);
+    assert.match(prompt, /multiple Mixed ratings must not be turned into unqualified praise/);
+    assert.match(prompt, /A Could improve rating is a genuine negative assessment/);
+    assert.match(prompt, /do not turn poor or predominantly negative feedback into a positive endorsement/);
+    assert.match(prompt, /Written complaints take priority over numerical rating counts/);
+    assert.match(prompt, /If the inputs are mixed, keep that qualification/);
+    assert.match(prompt, /Do not force a positive opening/);
+  }
+  assert.match(reviewSystemPrompt("xiaohongshu"), /Do not mechanically list the questionnaire/);
+  assert.match(reviewSystemPrompt("xiaohongshu", "experience"), /do not artificially add positives/);
+});

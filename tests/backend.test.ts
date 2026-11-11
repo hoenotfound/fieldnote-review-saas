@@ -25,6 +25,8 @@ import {
   publicLocation,
   type GenerationInput,
   writeDraft,
+  reviewAiInput,
+  reviewRatingBalance,
 } from "../src/lib/reviews";
 import { makeAuth, origin } from "../src/lib/auth";
 import { translations } from "../src/lib/i18n";
@@ -1075,4 +1077,102 @@ test("Experience Post details are included once and are part of idempotency iden
     generate({ ...request, xhsTip: "Different tip from the customer." }, id, provider),
     (error: unknown) => error instanceof AppError && error.code === "REQUEST_CONFLICT",
   );
+});
+
+test("Gemini context separates customer-authored concerns from coarse survey labels", () => {
+  const typed = "做激光疗程时等候比预期久。";
+  const combined = "Product or service quality: Good\\nEnvironment: Mixed\\nValue for money: Mixed\\n\\n" + typed;
+  const draftInput = reviewAiInput({
+    ...input({ platform: "xiaohongshu", experience: combined }),
+    xhsStyle: "quick",
+  }, "Test Clinic", typed, "Puchong");
+  assert.equal(draftInput.customerWrittenNote, typed);
+  assert.equal(draftInput.experience, combined);
+  assert.equal(draftInput.platform, "xiaohongshu");
+  assert.equal("customerStandout" in draftInput, false);
+  assert.equal("locationName" in draftInput, false);
+  assert.equal(JSON.stringify(draftInput).includes("RM100"), false);
+  const otherPlatform = reviewAiInput(input({ experience: typed, platform: "google" }), "Test Clinic", typed);
+  assert.equal(otherPlatform.customerWrittenNote, typed);
+  assert.equal("xhsStyle" in otherPlatform, false);
+});
+
+
+test("five customer sentiment scenarios preserve balanced evidence without inventing ratings", () => {
+  const baseAnswers: NonNullable<GenerationInput["answers"]> = {
+    items: [],
+    ratings: {},
+    visit: "",
+    spend: 288,
+  };
+  const scenarios: Array<{
+    name: string;
+    ratings: NonNullable<GenerationInput["answers"]>["ratings"];
+    details?: string[];
+    written: string;
+    expected: { good: number; mixed: number; couldImprove: number; specificPositive: number; specificNegative: number };
+  }> = [
+    {
+      name: "all positive",
+      ratings: { quality: "good", service: "good", environment: "good", value: "good" },
+      written: "工作人员有解释当天的护理流程。",
+      expected: { good: 4, mixed: 0, couldImprove: 0, specificPositive: 0, specificNegative: 0 },
+    },
+    {
+      name: "mostly positive with one mixed",
+      ratings: { quality: "good", service: "good", environment: "mixed", value: "good" },
+      written: "服务态度不错，等待时间比预期稍长。",
+      expected: { good: 3, mixed: 1, couldImprove: 0, specificPositive: 0, specificNegative: 0 },
+    },
+    {
+      name: "mixed, matching client's laser review",
+      ratings: { quality: "good", service: "good", environment: "mixed", value: "mixed" },
+      written: "做激光疗程时等候比预期久。",
+      expected: { good: 2, mixed: 2, couldImprove: 0, specificPositive: 0, specificNegative: 0 },
+    },
+    {
+      name: "mostly negative despite one good rating",
+      ratings: { quality: "poor", service: "good", environment: "poor", value: "mixed" },
+      written: "过程比预期久，之后的说明也没有解答我的顾虑。",
+      expected: { good: 1, mixed: 1, couldImprove: 2, specificPositive: 0, specificNegative: 0 },
+    },
+    {
+      name: "critical with specific negative feedback",
+      ratings: { quality: "poor", service: "poor", environment: "poor", value: "poor" },
+      details: ["wait:negative"],
+      written: "等候很久，也没有得到明确的解释，我不满意。",
+      expected: { good: 0, mixed: 0, couldImprove: 4, specificPositive: 0, specificNegative: 1 },
+    },
+  ];
+  for (const scenario of scenarios) {
+    const answers = { ...baseAnswers, ratings: scenario.ratings, details: scenario.details };
+    const generation = input({ platform: "xiaohongshu", experience: scenario.written, answers });
+    assert.deepEqual(reviewRatingBalance(answers), scenario.expected, scenario.name);
+    const context = reviewAiInput(generation, "Beleco Clinic", scenario.written, "Puchong");
+    assert.deepEqual(context.ratingBalance, scenario.expected, scenario.name);
+    assert.equal(context.customerWrittenNote, scenario.written, scenario.name);
+    assert.equal(context.experience, scenario.written, scenario.name);
+    assert.equal(context.platform, "xiaohongshu", scenario.name);
+    assert.equal(JSON.stringify(context).includes("288"), false, "private spend not passed: " + scenario.name);
+    assert.equal(JSON.stringify(context).includes("laser results guaranteed"), false, scenario.name);
+    assert.equal((context.ratingBalance?.couldImprove ?? 0) >= 2,
+      ["mostly negative despite one good rating", "critical with specific negative feedback"].includes(scenario.name),
+      scenario.name);
+  }
+  assert.equal(reviewRatingBalance(), null);
+  assert.equal(reviewRatingBalance({ ...baseAnswers, ratings: {} }), null);
+});
+
+test("all mixed scores remain distinct from all positive and explicitly critical ratings", () => {
+  const base: NonNullable<GenerationInput["answers"]> = {
+    items: [], visit: "", spend: null, ratings: {},
+  };
+  assert.deepEqual(reviewRatingBalance({
+    ...base,
+    ratings: { quality: "mixed", service: "mixed", environment: "mixed", value: "mixed" },
+  }), { good: 0, mixed: 4, couldImprove: 0, specificPositive: 0, specificNegative: 0 });
+  assert.deepEqual(reviewRatingBalance({
+    ...base,
+    details: ["staff:positive", "waiting:negative"],
+  }), { good: 0, mixed: 0, couldImprove: 0, specificPositive: 1, specificNegative: 1 });
 });
