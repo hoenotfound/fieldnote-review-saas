@@ -255,6 +255,32 @@ const outputSchema = z.object({
   body: z.string().min(1).max(3000),
   needsDetail: z.boolean(),
 });
+// Distinguish the customer's own words from questionnaire labels so Gemini
+// does not turn every broad rating into a literal claim or checklist.
+export function reviewAiInput(
+  input: GenerationInput,
+  businessName: string,
+  customerText: string,
+  locationName?: string,
+) {
+  return {
+    businessName,
+    experience: input.experience,
+    customerWrittenNote: customerText,
+    language: input.locale,
+    platform: input.platform,
+    ...(input.platform === "xiaohongshu" && input.xhsStyle === "experience"
+      ? {
+          xhsStyle: "experience",
+          customerStandout: input.xhsStandout || "",
+          customerTip: input.xhsTip || "",
+          // Branch information has been verified server-side.
+          locationName: locationName || "",
+        }
+      : {}),
+  };
+}
+
 export async function writeDraft(
   input: GenerationInput,
   businessName: string,
@@ -278,24 +304,7 @@ export async function writeDraft(
   });
   const response = await ai.models.generateContent({
     model: process.env.GEMINI_MODEL,
-    contents: JSON.stringify({
-      businessName,
-      experience: input.experience,
-      // Unlike the experience summary above, this contains only text the
-      // customer entered themselves, including optional Xiaohongshu notes.
-      customerWrittenNote: customerText,
-      language: input.locale,
-      platform: input.platform,
-      ...(input.platform === "xiaohongshu" && input.xhsStyle === "experience"
-        ? {
-            xhsStyle: "experience",
-            customerStandout: input.xhsStandout || "",
-            customerTip: input.xhsTip || "",
-            // Verified by the server against the selected business location.
-            locationName: locationName || "",
-          }
-        : {}),
-    }),
+    contents: JSON.stringify(reviewAiInput(input, businessName, customerText, locationName)),
     config: {
       systemInstruction:
         reviewSystemPrompt(input.platform, input.xhsStyle),
