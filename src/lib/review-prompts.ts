@@ -39,6 +39,15 @@ export const XIAOHONGSHU_REVIEW_RULES = [
   "Customer must review the final post and disclose AI assistance on Xiaohongshu when applicable. Platform moderation is contextual and no keyword list guarantees acceptance.",
 ].join(" ");
 
+export const XHS_EXPERIENCE_POST_RULES = [
+  "Xiaohongshu Experience Post mode: structure this as a helpful, searchable first-person experience note, not an advertisement or guaranteed viral post.",
+  "Start with a modest descriptive title using only real facts: the service actually tried, a meaningful observation, and optionally the verified business or branch location. Never fabricate search keywords, neighbourhoods, treatments, comparisons, or results.",
+  "Put the customer's most specific, useful observation first. If available, follow with what happened during the visit and the practical tip or concern they explicitly supplied. Keep the tone balanced and personal.",
+  "Use 2-4 short paragraphs only when enough actual details are present; if not, make it shorter instead of adding imaginary explanations, emotions or results. Aim for roughly 80-180 Chinese characters where supported; no length quota.",
+  "Do not mechanically repeat the input, write promotional hooks, insert unrelated search terms, manufacture clickbait, or add hashtags. Keep the content accurate even if the customer was dissatisfied.",
+  "The optional standout detail and practical tip are direct customer-authored evidence. Preserve their meaning, including negative feedback and uncertainty, without adding claims.",
+].join(" ");
+
 export const FACEBOOK_REVIEW_RULES = [
   "Facebook Page Recommendation: use one concise first-person paragraph with no title.",
   "Describe the customer's own experience, including mixed or negative observations.",
@@ -105,14 +114,15 @@ export function containsUnstatedPrice(
   return priceWords(proposed).some((value) => !authorWords.has(value));
 }
 
-export function reviewSystemPrompt(platform: ReviewPlatform) {
+export function reviewSystemPrompt(platform: ReviewPlatform, xhsStyle: "quick" | "experience" = "quick") {
   const rules: Record<ReviewPlatform, string> = {
     google: GOOGLE_REVIEW_RULES,
     xiaohongshu: XIAOHONGSHU_REVIEW_RULES,
     facebook: FACEBOOK_REVIEW_RULES,
     instagram: INSTAGRAM_REVIEW_RULES,
   };
-  return SHARED_REVIEW_RULES + "\n\n" + rules[platform];
+  return SHARED_REVIEW_RULES + "\n\n" + rules[platform] +
+    (platform === "xiaohongshu" && xhsStyle === "experience" ? "\n\n" + XHS_EXPERIENCE_POST_RULES : "");
 }
 
 export type XhsDraftRisk = {
