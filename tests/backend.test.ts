@@ -25,6 +25,7 @@ import {
   publicLocation,
   type GenerationInput,
   writeDraft,
+  reviewAiInput,
 } from "../src/lib/reviews";
 import { makeAuth, origin } from "../src/lib/auth";
 import { translations } from "../src/lib/i18n";
@@ -1075,4 +1076,22 @@ test("Experience Post details are included once and are part of idempotency iden
     generate({ ...request, xhsTip: "Different tip from the customer." }, id, provider),
     (error: unknown) => error instanceof AppError && error.code === "REQUEST_CONFLICT",
   );
+});
+
+test("Gemini context separates customer-authored concerns from coarse survey labels", () => {
+  const typed = "做激光疗程时等候比预期久。";
+  const combined = "Product or service quality: Good\\nEnvironment: Mixed\\nValue for money: Mixed\\n\\n" + typed;
+  const draftInput = reviewAiInput({
+    ...input({ platform: "xiaohongshu", experience: combined }),
+    xhsStyle: "quick",
+  }, "Test Clinic", typed, "Puchong");
+  assert.equal(draftInput.customerWrittenNote, typed);
+  assert.equal(draftInput.experience, combined);
+  assert.equal(draftInput.platform, "xiaohongshu");
+  assert.equal("customerStandout" in draftInput, false);
+  assert.equal("locationName" in draftInput, false);
+  assert.equal(JSON.stringify(draftInput).includes("RM100"), false);
+  const otherPlatform = reviewAiInput(input({ experience: typed, platform: "google" }), "Test Clinic", typed);
+  assert.equal(otherPlatform.customerWrittenNote, typed);
+  assert.equal("xhsStyle" in otherPlatform, false);
 });
