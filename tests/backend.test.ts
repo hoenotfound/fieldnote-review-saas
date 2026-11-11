@@ -1026,3 +1026,53 @@ test("pilot configuration refuses demo mode, missing isolation confirmation and 
   ])
     assert.ok(pilotProblems({ ...env, ...change }).length > 0);
 });
+
+
+test("Xiaohongshu Experience Post accepts customer details but rejects invented or cross-platform mode inputs", async () => {
+  const { generationInput } = await import("../src/lib/reviews");
+  const valid = {
+    ...input({ experience: "", platform: "xiaohongshu" }),
+    xhsStyle: "experience" as const,
+    xhsStandout: "The staff explained each step before the treatment.",
+    xhsTip: "Ask questions about the process before starting.",
+  };
+  assert.equal(generationInput.safeParse(valid).success, true);
+  assert.equal(generationInput.safeParse({ ...valid, xhsStandout: "good", xhsTip: "" }).success, false);
+  assert.equal(generationInput.safeParse({ ...valid, xhsStyle: "quick" }).success, false);
+  assert.equal(generationInput.safeParse({ ...valid, platform: "google" }).success, false);
+  assert.equal(generationInput.safeParse({ ...valid, xhsStandout: "A".repeat(241) }).success, false);
+  assert.equal(generationInput.safeParse({
+    ...input({ platform: "xiaohongshu", experience: "A nice service." }),
+    xhsStyle: "quick",
+  }).success, true);
+});
+
+test("Experience Post details are included once and are part of idempotency identity", async () => {
+  const id = await guest();
+  const request = {
+    ...input({ experience: "", platform: "xiaohongshu" }),
+    xhsStyle: "experience" as const,
+    xhsStandout: "I asked about every step and the team explained it.",
+    xhsTip: "Bring your questions before the appointment.",
+  };
+  const observed: Array<{ experience: string; business: string; customerText: string; locationName?: string }> = [];
+  // Match writeDraft's optional third argument to satisfy its provider type.
+  const provider = async (i: GenerationInput, business: string, customerText = "", locationName?: string) => {
+    observed.push({ experience: i.experience, business, customerText, locationName });
+    return { draft: { title: "My visit", body: i.xhsStandout || "", demo: true }, inputTokens: 0, outputTokens: 0 };
+  };
+  await generate(request, id, provider);
+  await generate(request, id, provider);
+  assert.equal(observed.length, 1);
+  // Other backend tests deliberately rename this test business.
+  // Compare against the current verified location instead of assuming a fixed name.
+  const currentLocation = await publicLocation("a");
+  assert.equal(observed[0]?.business, currentLocation?.business_name);
+  assert.equal(observed[0]?.locationName, currentLocation?.name);
+  assert.match(observed[0]?.customerText || "", /I asked about every step/);
+  assert.equal(observed[0]?.experience, "");
+  await assert.rejects(
+    generate({ ...request, xhsTip: "Different tip from the customer." }, id, provider),
+    (error: unknown) => error instanceof AppError && error.code === "REQUEST_CONFLICT",
+  );
+});

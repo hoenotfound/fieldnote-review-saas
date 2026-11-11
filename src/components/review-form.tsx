@@ -55,6 +55,9 @@ export function ReviewForm({
   const [locale, setLocale] = useState<Locale>("en");
   const [output, setOutput] = useState<Locale>("en");
   const [platform, setPlatform] = useState<ReviewPlatform>("google");
+  const [xhsStyle, setXhsStyle] = useState<"quick" | "experience">("quick");
+  const [xhsStandout, setXhsStandout] = useState("");
+  const [xhsTip, setXhsTip] = useState("");
   const [experience, setExperience] = useState("");
   const [answers, setAnswers] = useState<Answers>(emptyAnswers);
   const config = readConfig(location.questionnaire);
@@ -116,6 +119,10 @@ export function ReviewForm({
           const facebookNoLongerConfigured = old.platform === "facebook" && !location.facebook_review_url;
           if (!facebookNoLongerConfigured && ["google", "xiaohongshu", "facebook", "instagram"].includes(old.platform))
             setPlatform(old.platform as ReviewPlatform);
+          if (old.xhsStyle === "quick" || old.xhsStyle === "experience")
+            setXhsStyle(old.xhsStyle);
+          if (typeof old.xhsStandout === "string") setXhsStandout(old.xhsStandout.slice(0, 240));
+          if (typeof old.xhsTip === "string") setXhsTip(old.xhsTip.slice(0, 300));
           if (old.shareManualSpending === true) setShareManualSpending(true);
           if (old.hasReportedManualSpend === true) {
             manualSpendingReported.current = true;
@@ -176,6 +183,9 @@ export function ReviewForm({
             locale,
             output,
             platform,
+            xhsStyle,
+            xhsStandout,
+            xhsTip,
             draft,
             draftLanguage,
             saved: Date.now(),
@@ -192,6 +202,9 @@ export function ReviewForm({
     locale,
     output,
     platform,
+    xhsStyle,
+    xhsStandout,
+    xhsTip,
     draft,
     draftLanguage,
     storageKey,
@@ -222,8 +235,9 @@ export function ReviewForm({
     setError("");
     setTrialDiagnostic("");
     setMessage("");
-    if (!validAnswers || !hasExperience(experience, answers)) {
-      setError(t.more);
+    if (!ready) {
+      setError(platform === "xiaohongshu" && xhsStyle === "experience"
+        ? c.xhsNeedDetail : t.more);
       return;
     }
     if (platform === "facebook" && !location.facebook_review_url) {
@@ -266,6 +280,10 @@ export function ReviewForm({
           answers,
           locale: output,
           platform,
+          ...(platform === "xiaohongshu" ? {
+            xhsStyle,
+            ...(xhsStyle === "experience" ? { xhsStandout, xhsTip } : {}),
+          } : {}),
           requestKey: pendingKey.current,
           ...(challengeRequired && challengeToken ? { challengeToken } : {}),
         }),
@@ -363,13 +381,16 @@ export function ReviewForm({
       setError(t.facebookUnavailable);
       return;
     }
-    if (!validAnswers || !hasExperience(experience, answers)) {
-      setError(t.more);
+    if (!ready) {
+      setError(platform === "xiaohongshu" && xhsStyle === "experience"
+        ? c.xhsNeedDetail : t.more);
       return;
     }
     setDraft({
       title: "",
-      body: [answerNotes(answers, config, locale), experience]
+      body: [answerNotes(answers, config, locale), experience,
+        ...(platform === "xiaohongshu" && xhsStyle === "experience"
+          ? [xhsStandout, xhsTip] : [])]
         .filter(Boolean)
         .join("\n\n"),
       demo: false,
@@ -409,6 +430,9 @@ export function ReviewForm({
     setChallengeRequired(false);
     setChallengeToken("");
     setExperience("");
+    setXhsStyle("quick");
+    setXhsStandout("");
+    setXhsTip("");
     setAnswers(emptyAnswers());
     setDraft(null);
     setError("");
@@ -539,7 +563,13 @@ export function ReviewForm({
     photoRef.current = next;
     setError("");
   }
-  const ready = validAnswers && hasExperience(experience, answers);
+  const xhsExperienceMode = platform === "xiaohongshu" && xhsStyle === "experience";
+  const hasSpecificDetail = [experience, xhsStandout, xhsTip]
+    .some((value) => value.trim().length >= 12);
+  const ready = validAnswers &&
+    (xhsExperienceMode
+      ? hasSpecificDetail
+      : hasExperience(experience, answers));
   const step = stage === "welcome" ? 1 : stage === "visit" ? 2 : 3;
   return (
     <main
@@ -845,6 +875,62 @@ export function ReviewForm({
                   <p id="facebook-unavailable" className="destination-unavailable">{t.facebookUnavailable}</p>
                 )}
               </fieldset>
+              {platform === "xiaohongshu" && (
+                <fieldset className="xhs-style-picker">
+                  <legend>{c.xhsStyleLegend}</legend>
+                  <div className="xhs-style-choices">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-pressed={xhsStyle === "quick"}
+                      onClick={() => { setXhsStyle("quick"); invalidate(); }}
+                    >
+                      <strong>{c.xhsQuick}</strong>
+                      <small>{c.xhsQuickHelp}</small>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      aria-pressed={xhsStyle === "experience"}
+                      onClick={() => { setXhsStyle("experience"); invalidate(); }}
+                    >
+                      <strong>{c.xhsExperiencePost}</strong>
+                      <small>{c.xhsExperienceHelp}</small>
+                    </button>
+                  </div>
+                  {xhsExperienceMode && (
+                    <div className="xhs-experience-fields">
+                      <div className="field">
+                        <label htmlFor="xhs-standout">{c.xhsStandout}</label>
+                        <textarea
+                          id="xhs-standout"
+                          rows={2}
+                          maxLength={240}
+                          disabled={busy}
+                          value={xhsStandout}
+                          placeholder={c.xhsStandoutPlaceholder}
+                          onChange={(e) => { setXhsStandout(e.target.value); invalidate(); }}
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor="xhs-tip">{c.xhsTip}</label>
+                        <textarea
+                          id="xhs-tip"
+                          rows={2}
+                          maxLength={300}
+                          disabled={busy}
+                          value={xhsTip}
+                          placeholder={c.xhsTipPlaceholder}
+                          onChange={(e) => { setXhsTip(e.target.value); invalidate(); }}
+                        />
+                      </div>
+                      {!hasSpecificDetail && (
+                        <p className="xhs-note">{c.xhsNeedDetail}</p>
+                      )}
+                    </div>
+                  )}
+                </fieldset>
+              )}
               <div className="field output-field">
                 <label htmlFor="output-language">{t.output}</label>
                 <select
@@ -995,6 +1081,12 @@ export function ReviewForm({
               </div>
               {platform === "xiaohongshu" && xiaohongshuDraftRisk(draft) && (
                 <p role="status" className="notice">{t.xhsRiskNotice}</p>
+              )}
+              {platform === "xiaohongshu" && xhsStyle === "experience" && (
+                <section className="xhs-photo-guide" aria-label={c.xhsPhotoGuideTitle}>
+                  <h2>{c.xhsPhotoGuideTitle}</h2>
+                  <p>{c.xhsPhotoGuide}</p>
+                </section>
               )}
               {platform === "instagram" && (
                 <section className="instagram-sharing-guide" aria-label={t.instagramGuideTitle}>

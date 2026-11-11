@@ -227,3 +227,53 @@ test("a reported complaint must not hide a separate direct solicitation or guara
   for (const body of cases)
     assert.equal(xiaohongshuDraftRisk({ title: "My experience", body })?.severity, "block", body);
 });
+
+
+test("Xiaohongshu prompt requires source-grounded, conversational beauty reviews", () => {
+  const prompt = reviewSystemPrompt("xiaohongshu");
+  assert.match(prompt, /Questionnaire ticks are only broad opinions/);
+  assert.match(prompt, /invented waiting times/);
+  assert.match(prompt, /Do not mechanically list/);
+  assert.match(prompt, /chosen treatment name is NOT proof/);
+  assert.match(prompt, /collagen regeneration/);
+  assert.match(prompt, /no keyword list guarantees acceptance/);
+  assert.doesNotMatch(reviewSystemPrompt("google"), /collagen regeneration/);
+});
+
+test("Xiaohongshu generated beauty claims and boilerplate are withheld", () => {
+  for (const body of [
+    "做完一次就见效，真的很神奇。",
+    "这家护理能促进胶原蛋白再生。",
+    "护理可以深层排毒。",
+    "做完之后零恢复期。",
+    "这个项目能够彻底消除皱纹。",
+    "Instant results and no downtime.",
+  ]) {
+    assert.deepEqual(xiaohongshuDraftRisk({ title: "到店体验", body }),
+      { severity: "block", category: "claim" }, body);
+  }
+  const example = "去Beleco Clinic体验了提拉紧致项目。整体等候时间合理，员工的服务态度让人满意，产品和服务的品质也符合预期，环境同样不错，性价比感觉可以。";
+  assert.equal(xiaohongshuDraftRisk({ title: "到店体验", body: example })?.severity, "block");
+});
+
+test("Xiaohongshu neutral service names and honest experience still pass", () => {
+  for (const body of [
+    "去Beleco Clinic体验了提拉紧致项目，工作人员有解释步骤，整体感觉还可以。",
+    "做了面部护理，店里很安静，不过等候时间比我预期长。",
+    "我体验了护理，结束后觉得皮肤摸起来比较滑，但不确定是否能维持。",
+    "做完之後沒有什麼特別改變，我不太滿意。",
+  ])
+    assert.equal(xiaohongshuDraftRisk({ title: "个人体验", body }), null, body);
+});
+
+
+test("Xiaohongshu Experience Post adds practical, truthful search writing guidance only to that mode", () => {
+  const quick = reviewSystemPrompt("xiaohongshu");
+  const experience = reviewSystemPrompt("xiaohongshu", "experience");
+  assert.match(experience, /searchable first-person experience note/);
+  assert.match(experience, /verified business or branch location/);
+  assert.match(experience, /practical tip or concern/);
+  assert.match(experience, /not an advertisement/);
+  assert.doesNotMatch(quick, /verified business or branch location/);
+  assert.doesNotMatch(reviewSystemPrompt("google"), /verified business or branch location/);
+});

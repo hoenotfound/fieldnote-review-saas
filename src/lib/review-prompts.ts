@@ -27,13 +27,25 @@ export const GOOGLE_REVIEW_RULES = [
 ].join(" ");
 
 export const XIAOHONGSHU_REVIEW_RULES = [
-  "Xiaohongshu (小红书): a useful firsthand personal note, never a sales post.",
-  "Make the brief title informative: a service actually tried plus the customer's main real observation or trade-off, if supplied.",
-  "In the body, prioritise specific experience details a reader would want to know before visiting.",
-  "Use short natural paragraphs only when enough detail exists. Do not force a long story, Chinese, emojis or hashtags.",
-  "No exaggerated hooks, guaranteed or permanent medical/beauty results, referral language, promotions, booking requests or off-platform contacts.",
-  "Do not disguise prohibited wording with homophones or spacing. Preserve honest criticism, including criticism of exaggerated claims.",
-  "Customer must check the final post and disclose AI assistance in Xiaohongshu when applicable.",
+  "Xiaohongshu (小红书): help the customer write an authentic firsthand note, not an advertisement, arranged review, or a scripted endorsement. Do not claim platform approval.",
+  "Treat customer free text as the strongest evidence. Questionnaire ticks are only broad opinions: do not turn a rating into invented waiting times, staff actions, procedures, physical changes, results, prices, or reasons for satisfaction.",
+  "Choose at most one or two actually stated aspects. Do not mechanically list service quality, staff, environment, and value in one generic paragraph. If the customer provides few details, write one or two short truthful sentences rather than padding.",
+  "Use everyday, conversational wording suitable for the requested language and region, including natural Malaysian Chinese when appropriate. Avoid formal appraisal phrases such as '整体等候时间合理', '产品和服务的品质也符合预期', '环境同样不错', '性价比感觉可以', and empty 'overall great' summaries.",
+  "For beauty, skincare, or clinic visits, a chosen treatment name is NOT proof it achieved any result. Do not convert a service label such as '提拉紧致' into a claim that skin was lifted, tightened, treated or changed. When the name sounds like a marketing result, prefer the neutral word '护理' or a brief factual label, without concealing relevant firsthand details.",
+  "Never assert medical efficacy, disease treatment or prevention, physiological mechanisms, detoxification, collagen regeneration, permanent outcomes, immediate transformations, zero risk, zero pain, or a fixed recovery period. A customer's subjective observation may be described cautiously only when they actually provided it; do not invent before-and-after changes.",
+  "No advertising superlatives, invented credentials, discounts, calls to book, hashtags, referral language, off-platform contacts, or masked/split words meant to evade moderation.",
+  "Make the brief title informative and modest: a service actually tried plus the customer's main real observation or trade-off, if supplied. In the body favour practical details a reader would want to know, and preserve honest criticisms or uncertainty, even about promotional claims.",
+  "Set needsDetail=true if the inputs cannot support even a short meaningful firsthand note. Otherwise return short, unembellished title and body; do not force a story.",
+  "Customer must review the final post and disclose AI assistance on Xiaohongshu when applicable. Platform moderation is contextual and no keyword list guarantees acceptance.",
+].join(" ");
+
+export const XHS_EXPERIENCE_POST_RULES = [
+  "Xiaohongshu Experience Post mode: structure this as a helpful, searchable first-person experience note, not an advertisement or guaranteed viral post.",
+  "Start with a modest descriptive title using only real facts: the service actually tried, a meaningful observation, and optionally the verified business or branch location. Never fabricate search keywords, neighbourhoods, treatments, comparisons, or results.",
+  "Put the customer's most specific, useful observation first. If available, follow with what happened during the visit and the practical tip or concern they explicitly supplied. Keep the tone balanced and personal.",
+  "Use 2-4 short paragraphs only when enough actual details are present; if not, make it shorter instead of adding imaginary explanations, emotions or results. Aim for roughly 80-180 Chinese characters where supported; no length quota.",
+  "Do not mechanically repeat the input, write promotional hooks, insert unrelated search terms, manufacture clickbait, or add hashtags. Keep the content accurate even if the customer was dissatisfied.",
+  "The optional standout detail and practical tip are direct customer-authored evidence. Preserve their meaning, including negative feedback and uncertainty, without adding claims.",
 ].join(" ");
 
 export const FACEBOOK_REVIEW_RULES = [
@@ -102,14 +114,15 @@ export function containsUnstatedPrice(
   return priceWords(proposed).some((value) => !authorWords.has(value));
 }
 
-export function reviewSystemPrompt(platform: ReviewPlatform) {
+export function reviewSystemPrompt(platform: ReviewPlatform, xhsStyle: "quick" | "experience" = "quick") {
   const rules: Record<ReviewPlatform, string> = {
     google: GOOGLE_REVIEW_RULES,
     xiaohongshu: XIAOHONGSHU_REVIEW_RULES,
     facebook: FACEBOOK_REVIEW_RULES,
     instagram: INSTAGRAM_REVIEW_RULES,
   };
-  return SHARED_REVIEW_RULES + "\n\n" + rules[platform];
+  return SHARED_REVIEW_RULES + "\n\n" + rules[platform] +
+    (platform === "xiaohongshu" && xhsStyle === "experience" ? "\n\n" + XHS_EXPERIENCE_POST_RULES : "");
 }
 
 export type XhsDraftRisk = {
@@ -140,6 +153,14 @@ const CLAIM_REBUTTAL = /(?:不认同|不認同|不相信|不赞同|不贊同|不
 const REPORTED_REQUEST = /(?:前台|店员|店員|工作人员|工作人員|客服|销售|銷售|顾问|顧問|护士|護士|医生|醫生|他们|他們|对方|對方|店家|商家|staff|receptionist|salesperson|consultant|they|the\s+clinic|staf|pekerja)[^。！？.!?\n]{0,24}(?:让我|讓我|叫我|要我|要求我|逼我|让我|讓我們|叫我们|叫我們|让我先|讓我先|要我们|要我們|asked\s+me(?:\s+to)?|told\s+me(?:\s+to)?|pushed\s+me(?:\s+to)?|pressured\s+me(?:\s+to)?|made\s+me|suruh\s+saya|paksa\s+saya)/iu;
 const REQUEST_COMPLAINT = /(?:很烦|好烦|反感|不喜欢|不喜歡|不愿意|不願意|很不舒服|被迫|强迫|強迫|不合理|拒绝|拒絕|投诉|投訴|讨厌|討厭|逼迫|骚扰|騷擾|didn't\s+like|did\s+not\s+like|felt\s+(?:pressured|uncomfortable)|forced\s+me|unwanted|annoyed|uncomfortable|not\s+happy|refused|complain|complaint|tak\s+suka|terpaksa|tidak\s+selesa|mengganggu)/iu;
 const SOFT_PROMOTION = /(?:买一送一|買一送一|三天(?:见效|見效)|[1-9]\d?天(?:见效|見效)|(?:首单|首單)(?:优惠|優惠)|(?:free|discount)\s+(?:trial|voucher))/iu;
+
+// A generated review must not claim biological changes or instant beauty
+// transformations as objective facts. Keep neutral treatment *names* (e.g.
+// "提拉紧致项目") distinct from promises that the treatment worked.
+const BEAUTY_EFFECT_CLAIM = /(?:立竿见影|立竿見影|一次(?:就)?见效|一次(?:就)?見效|(?:立即|立刻|马上|馬上|当场|當場|即时|即時)(?:看到|看見|实现|實現|达到|達到)?(?:明显|明顯|显著|顯著)?(?:见效|見效|逆龄|逆齡|年轻十岁|年輕十歲)|(?:促进|促進|激活|刺激)(?:.{0,12})(?:胶原蛋白|膠原蛋白|淋巴排毒|血液循环|血液循環|新陈代谢|新陳代謝)|(?:深层|深層)?排毒|(?:彻底|徹底|完全|永久)(?:.{0,6})(?:去除|祛除|消除|解决|解決)(?:.{0,12})(?:痘|斑|疤|皱纹|皺紋|双下巴|雙下巴)|(?:零|无|無)(?:恢复期|恢復期|痛感|风险|風險)|(?:no\s+downtime|instant\s+(?:results|lift|transformation)|collagen\s+regeneration|detoxifies|stimulates\s+collagen))/iu;
+// These phrases are evidence of boilerplate, not a known exhaustive list of
+// banned words. Reject AI-generated filler rather than show an invented review.
+const BOILERPLATE_REVIEW = /(?:整体等候时间合理|整體等候時間合理|产品和服务的品质也符合预期|產品和服務的品質也符合預期|环境同样不错|環境同樣不錯|性价比感觉可以|性價比感覺可以)/iu;
 
 // If the customer describes being pressured by staff to follow a promotional
 // instruction, it is a review of conduct, not a fresh instruction to readers.
@@ -202,6 +223,14 @@ export function xiaohongshuDraftRisk(draft: { title: string; body: string }): Xh
     else
       return { severity: "block", category: "claim" };
   }
+  for (const match of content.matchAll(new RegExp(BEAUTY_EFFECT_CLAIM.source, BEAUTY_EFFECT_CLAIM.flags + "g"))) {
+    if (disputedClaim(content, match.index, match[0].length))
+      warning ??= { severity: "warn", category: "claim" };
+    else
+      return { severity: "block", category: "claim" };
+  }
+  if (BOILERPLATE_REVIEW.test(content))
+    return { severity: "block", category: "promotion" };
   if (SOFT_PROMOTION.test(content))
     warning ??= { severity: "warn", category: "promotion" };
   return warning;

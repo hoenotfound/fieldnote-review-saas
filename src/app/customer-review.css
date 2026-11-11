@@ -1133,3 +1133,72 @@
 @media (prefers-reduced-motion: reduce) {
   .review-scene--welcome .language-tile { transition: none; }
 }
+
+/* Xiaohongshu: two distinct, accessible writing choices on mobile. */
+.xhs-style-picker {
+  border: 0;
+  padding: 0;
+  margin: 18px 0 14px;
+  min-width: 0;
+}
+.xhs-style-picker legend {
+  font-size: 15px;
+  font-weight: 750;
+  margin-bottom: 10px;
+  color: var(--review-ink);
+}
+.xhs-style-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.xhs-style-choices button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  text-align: left;
+  min-width: 0;
+  min-height: 100px;
+  padding: 13px;
+  border: 1px solid var(--review-border);
+  background: #fff;
+  color: var(--review-ink);
+  font: inherit;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.xhs-style-choices button[aria-pressed="true"] {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, #fff);
+}
+.xhs-style-choices strong { font-size: 14px; line-height: 1.35; }
+.xhs-style-choices small {
+  color: var(--review-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+.xhs-style-choices button:disabled { opacity: 0.6; cursor: not-allowed; }
+.xhs-experience-fields {
+  display: grid;
+  gap: 13px;
+  padding: 15px 0 3px;
+}
+.xhs-experience-fields .field { margin: 0; }
+.xhs-experience-fields textarea { min-height: 76px; }
+.xhs-note { font-size: 13px; line-height: 1.5; color: var(--review-muted); margin: 0; }
+.xhs-photo-guide {
+  background: #f7fafb;
+  border: 1px solid var(--review-border);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 14px 0;
+}
+.xhs-photo-guide h2 { font-size: 15px; margin: 0 0 7px; color: var(--review-ink); }
+.xhs-photo-guide p { font-size: 13px; line-height: 1.55; color: var(--review-muted); margin: 0; }
+@media (max-width: 380px) {
+  .xhs-style-choices { grid-template-columns: 1fr; }
+  .xhs-style-choices button { min-height: 0; }
+}

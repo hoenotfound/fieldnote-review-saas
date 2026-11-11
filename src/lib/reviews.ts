@@ -23,10 +23,22 @@ export const generationInput = z
     answers: answersSchema.optional(),
     locale: z.enum(locales),
     platform: z.enum(["google", "xiaohongshu", "facebook", "instagram"]),
+    // Optional Xiaohongshu-only draft style. Absent means the existing quick review.
+    xhsStyle: z.enum(["quick", "experience"]).optional(),
+    xhsStandout: z.string().trim().max(240).optional(),
+    xhsTip: z.string().trim().max(300).optional(),
     requestKey: z.string().uuid(),
   })
   .strict()
-  .refine((i) => hasExperience(i.experience, i.answers));
+  .refine((i) => i.platform === "xiaohongshu" ||
+    (i.xhsStyle === undefined && i.xhsStandout === undefined && i.xhsTip === undefined))
+  .refine((i) => i.xhsStyle === "experience" ||
+    (!i.xhsStandout && !i.xhsTip))
+  .refine((i) => hasExperience(i.experience, i.answers) ||
+    (i.platform === "xiaohongshu" && i.xhsStyle === "experience" &&
+      [i.xhsStandout, i.xhsTip].some((value) => (value?.length ?? 0) >= 12)))
+  .refine((i) => i.platform !== "xiaohongshu" || i.xhsStyle !== "experience" ||
+    [i.experience, i.xhsStandout, i.xhsTip].some((value) => (value?.length ?? 0) >= 12));
 export type GenerationInput = z.infer<typeof generationInput>;
 export type PublicLocation = {
   id: string;
@@ -79,6 +91,9 @@ export async function generate(
       answers: input.answers,
       locale: input.locale,
       platform: input.platform,
+      xhsStyle: input.xhsStyle,
+      xhsStandout: input.xhsStandout,
+      xhsTip: input.xhsTip,
     }),
   );
   const prepared = await db.transaction(async (t) => {
@@ -91,8 +106,8 @@ export async function generate(
     )[0];
     if (!guest) throw new AppError("SESSION_EXPIRED", 401);
     const loc = (
-      await rows<{ business_id: string; facebook_review_url: string | null }>(
-        sql`select l.business_id, l.facebook_review_url from location l join business b on b.id=l.business_id where l.id=${guest.location_id} and l.slug=${input.slug} and l.active=true and b.active=true`,
+      await rows<{ business_id: string; facebook_review_url: string | null; name: string }>(
+        sql`select l.business_id, l.facebook_review_url, l.name from location l join business b on b.id=l.business_id where l.id=${guest.location_id} and l.slug=${input.slug} and l.active=true and b.active=true`,
         tx,
       )
     )[0];
@@ -149,7 +164,9 @@ export async function generate(
     const config = readConfig(b.questionnaire);
     if (!choicesMatch(input.answers, config))
       throw new AppError("QUESTIONNAIRE_CHANGED", 409);
-    if (!hasExperience(input.experience, input.answers))
+    if (!hasExperience(input.experience, input.answers) &&
+      !(input.platform === "xiaohongshu" && input.xhsStyle === "experience" &&
+        [input.xhsStandout, input.xhsTip].some((value) => (value?.length ?? 0) >= 12)))
       throw new AppError("MORE_DETAIL", 422);
     const notes = input.answers
       ? answerNotes(input.answers, config, input.locale)
@@ -188,7 +205,7 @@ export async function generate(
     await tx.execute(
       sql`insert into generation(id,guest_id,business_id,location_id,request_key,input_hash,state,output_locale,platform,provider,deadline_at,spend_rm) values(${id},${guestId},${b.id},${guest.location_id},${input.requestKey},${inputHash},'pending',${input.locale},${input.platform},${process.env.AI_MODE === "gemini" ? "gemini" : "demo"},now()+interval '60 seconds',${spendRm})`,
     );
-    return { id, businessId: b.id, businessName: b.name, experience };
+    return { id, businessId: b.id, businessName: b.name, experience, locationName: loc.name };
   });
   if ("draft" in prepared) return prepared.draft!;
   try {
@@ -198,8 +215,10 @@ export async function generate(
         answers: input.answers ? { ...input.answers, spend: null } : undefined },
       prepared.businessName!,
       // Only voluntary free text may authorize a price in the AI result.
-      // Questionnaire labels and spending answers must never authorize prices.
-      input.experience,
+      // Only voluntary customer text can authorize prices, never questionnaire labels.
+      [input.experience, input.xhsStyle === "experience" ? input.xhsStandout : "",
+        input.xhsStyle === "experience" ? input.xhsTip : ""].filter(Boolean).join("\n"),
+      prepared.locationName,
     );
     const committed = await db.transaction(async (t) => {
       const tx = t as unknown as DB;
@@ -236,7 +255,12 @@ const outputSchema = z.object({
   body: z.string().min(1).max(3000),
   needsDetail: z.boolean(),
 });
-export async function writeDraft(input: GenerationInput, businessName: string, customerText = input.experience) {
+export async function writeDraft(
+  input: GenerationInput,
+  businessName: string,
+  customerText = input.experience,
+  locationName?: string,
+) {
   if (process.env.AI_MODE !== "gemini") {
     if (process.env.APP_MODE !== "local")
       throw new AppError("AI_NOT_CONFIGURED", 503);
@@ -259,10 +283,19 @@ export async function writeDraft(input: GenerationInput, businessName: string, c
       experience: input.experience,
       language: input.locale,
       platform: input.platform,
+      ...(input.platform === "xiaohongshu" && input.xhsStyle === "experience"
+        ? {
+            xhsStyle: "experience",
+            customerStandout: input.xhsStandout || "",
+            customerTip: input.xhsTip || "",
+            // Verified by the server against the selected business location.
+            locationName: locationName || "",
+          }
+        : {}),
     }),
     config: {
       systemInstruction:
-        reviewSystemPrompt(input.platform),
+        reviewSystemPrompt(input.platform, input.xhsStyle),
       maxOutputTokens: 512,
       temperature: 0.4,
       responseMimeType: "application/json",
