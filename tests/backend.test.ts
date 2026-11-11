@@ -1065,8 +1065,11 @@ test("Experience Post details are included once and are part of idempotency iden
   await generate(request, id, provider);
   await generate(request, id, provider);
   assert.equal(callCount, 1);
-  assert.equal(seen?.business, "a");
-  assert.equal(seen?.locationName, "a");
+  // Other backend tests deliberately rename this test business.
+  // Compare against the current verified location instead of assuming a fixed name.
+  const currentLocation = await publicLocation("a");
+  assert.equal(seen?.business, currentLocation?.business_name);
+  assert.equal(seen?.locationName, currentLocation?.name);
   assert.match(seen?.customerText || "", /I asked about every step/);
   assert.equal(seen?.experience, "");
   await assert.rejects(
